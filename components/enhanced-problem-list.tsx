@@ -1,0 +1,249 @@
+"use client"
+
+import { useState } from "react"
+import { ChevronDown, ChevronRight, CheckCircle2, Circle, ExternalLink, Star, Youtube, Infinity } from "lucide-react"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { motion, AnimatePresence } from "framer-motion"
+
+interface Problem {
+  id: string
+  name: string
+  difficulty: string
+  completed: boolean
+  url: string
+  platform?: string
+  companies?: string[]
+  tags?: string[]
+  isBookmarked?: boolean
+}
+
+interface EnhancedProblemListProps {
+  title: string
+  problems: Problem[]
+  expanded?: boolean
+}
+
+function getPlatformIcon(platform?: string) {
+  switch (platform?.toLowerCase()) {
+    case "leetcode":
+      return <Infinity className="h-4 w-4 text-orange-500" />
+    case "youtube":
+      return <Youtube className="h-4 w-4 text-red-500" />
+    case "geeksforgeeks":
+      return (
+        <div className="w-4 h-4 bg-green-500 rounded text-xs flex items-center justify-center text-white font-bold">
+          G
+        </div>
+      )
+    case "interviewbit":
+      return (
+        <div className="w-4 h-4 bg-blue-500 rounded text-xs flex items-center justify-center text-white font-bold">
+          I
+        </div>
+      )
+    case "codechef":
+      return (
+        <div className="w-4 h-4 bg-purple-500 rounded text-xs flex items-center justify-center text-white font-bold">
+          C
+        </div>
+      )
+    case "codeforces":
+      return (
+        <div className="w-4 h-4 bg-red-500 rounded text-xs flex items-center justify-center text-white font-bold">
+          CF
+        </div>
+      )
+    default:
+      return <Infinity className="h-4 w-4 text-gray-500" />
+  }
+}
+
+function getDifficultyColor(difficulty: string) {
+  switch (difficulty.toLowerCase()) {
+    case "easy":
+      return "text-green-500 bg-green-500/10 border-green-500/20"
+    case "medium":
+      return "text-orange-500 bg-orange-500/10 border-orange-500/20"
+    case "hard":
+      return "text-red-500 bg-red-500/10 border-red-500/20"
+    case "basic":
+      return "text-blue-500 bg-blue-500/10 border-blue-500/20"
+    default:
+      return "text-gray-500 bg-gray-500/10 border-gray-500/20"
+  }
+}
+
+async function toggleProblemCompletion(problemId: string, completed: boolean) {
+  try {
+    const response = await fetch(`/api/problems/${problemId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ completed: !completed }),
+    })
+
+    if (response.ok) {
+      window.location.reload()
+    }
+  } catch (error) {
+    console.error("Error updating problem:", error)
+  }
+}
+
+export default function EnhancedProblemList({ title, problems, expanded = false }: EnhancedProblemListProps) {
+  const [isExpanded, setIsExpanded] = useState(expanded)
+  const completedCount = problems.filter((p) => p.completed).length
+
+  if (problems.length === 0) {
+    return null
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="border border-border/50 rounded-xl overflow-hidden bg-card/50 backdrop-blur-sm"
+    >
+      <motion.button
+        className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 text-left transition-colors duration-200"
+        onClick={() => setIsExpanded(!isExpanded)}
+        whileHover={{ backgroundColor: "rgba(var(--muted), 0.7)" }}
+        whileTap={{ scale: 0.98 }}
+      >
+        <div className="flex items-center gap-3">
+          <motion.div animate={{ rotate: isExpanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </motion.div>
+          <span className="font-medium text-lg">{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {completedCount} / {problems.length}
+          </span>
+          <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </motion.div>
+        </div>
+      </motion.button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="divide-y divide-border/30">
+              {problems.map((problem, index) => (
+                <motion.div
+                  key={problem.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  className="group relative p-4 hover:bg-muted/20 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Completion Status */}
+                    <motion.button
+                      onClick={() => toggleProblemCompletion(problem.id, problem.completed)}
+                      className="flex-shrink-0"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      {problem.completed ? (
+                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                      ) : (
+                        <Circle className="h-6 w-6 text-muted-foreground hover:text-green-500 transition-colors" />
+                      )}
+                    </motion.button>
+
+                    {/* Problem Title */}
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/problem/${problem.id}`} className="group/link">
+                        <h3 className="font-medium text-foreground group-hover/link:text-primary transition-colors truncate">
+                          {problem.name}
+                        </h3>
+                      </Link>
+
+                      {/* Companies */}
+                      {problem.companies && problem.companies.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {problem.companies.slice(0, 2).map((company) => (
+                            <Badge
+                              key={company}
+                              variant="secondary"
+                              className="text-xs px-2 py-0.5 bg-muted/50 text-muted-foreground"
+                            >
+                              {company}
+                            </Badge>
+                          ))}
+                          {problem.companies.length > 2 && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-2 py-0.5 bg-muted/50 text-muted-foreground"
+                            >
+                              +{problem.companies.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Platform Icon */}
+                    <div className="flex-shrink-0">{getPlatformIcon(problem.platform)}</div>
+
+                    {/* Difficulty Badge */}
+                    <div className="flex-shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={cn("font-medium px-3 py-1", getDifficultyColor(problem.difficulty))}
+                      >
+                        {problem.difficulty}
+                      </Badge>
+                    </div>
+
+                    {/* Tags */}
+                    {problem.tags && problem.tags.length > 0 && (
+                      <div className="flex-shrink-0">
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                          {problem.tags[0]}
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <Star className="h-4 w-4 text-yellow-500" />
+                      </motion.button>
+
+                      <Link href={problem.url} target="_blank">
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-1 hover:bg-muted rounded"
+                        >
+                          <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                        </motion.div>
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}

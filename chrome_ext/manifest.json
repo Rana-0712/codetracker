@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "CodeTracker",
+  "version": "1.0",
+  "description": "Save coding problems from various platforms for later review",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://leetcode.com/*",
+    "https://www.geeksforgeeks.org/*",
+    "https://www.interviewbit.com/*",
+    "https://www.codechef.com/*",
+    "https://codeforces.com/*",
+    "https://*.vercel.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://leetcode.com/problems/*",
+        "https://www.geeksforgeeks.org/problems/*",
+        "https://www.interviewbit.com/problems/*",
+        "https://www.codechef.com/practice/*",
+        "https://codeforces.com/problemset/problem/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeTracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      width: 350px;
+      min-height: 300px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="p-4">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-xl font-bold">CodeTracker</h1>
+      <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-300"></div>
+    </div>
+    
+    <div id="not-problem-page" class="hidden">
+      <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+        <p class="text-yellow-800 text-sm">
+          Navigate to a coding problem page to save it.
+        </p>
+      </div>
+      <p class="text-sm text-gray-600 mb-2">Supported platforms:</p>
+      <ul class="text-sm text-gray-600 list-disc pl-5 mb-4">
+        <li>LeetCode</li>
+        <li>GeeksForGeeks</li>
+        <li>InterviewBit</li>
+        <li>CodeChef</li>
+        <li>Codeforces</li>
+      </ul>
+    </div>
+    
+    <div id="problem-detected" class="hidden">
+      <div class="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+        <p class="text-green-800 text-sm">
+          Problem detected! You can save this problem.
+        </p>
+      </div>
+      
+      <div class="mb-4">
+        <h2 class="font-medium mb-1">Problem Title</h2>
+        <p id="problem-title" class="text-sm bg-white border rounded-md p-2">-</p>
+      </div>
+      
+      <div class="mb-4">
+        <h2 class="font-medium mb-1">Difficulty</h2>
+        <p id="problem-difficulty" class="text-sm">-</p>
+      </div>
+      
+      <div class="mb-4">
+        <h2 class="font-medium mb-1">Topics</h2>
+        <div id="problem-topics" class="flex flex-wrap gap-1">
+          <span class="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Loading...</span>
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <label for="topic-select" class="block font-medium mb-1">Save to Topic</label>
+        <select id="topic-select" class="w-full p-2 border rounded-md text-sm">
+          <option value="dynamic-programming">Dynamic Programming</option>
+          <option value="arrays">Arrays</option>
+          <option value="strings">Strings</option>
+          <option value="trees">Trees</option>
+          <option value="graphs">Graphs</option>
+          <option value="linked-lists">Linked Lists</option>
+          <option value="stacks-queues">Stacks and Queues</option>
+          <option value="binary-search">Binary Search</option>
+          <option value="greedy">Greedy</option>
+          <option value="backtracking">Backtracking</option>
+        </select>
+      </div>
+      
+      <div class="mb-4">
+        <label for="notes" class="block font-medium mb-1">Notes (optional)</label>
+        <textarea id="notes" class="w-full p-2 border rounded-md text-sm h-20" placeholder="Add your notes here..."></textarea>
+      </div>
+      
+      <button id="save-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+        Save Problem
+      </button>
+    </div>
+    
+    <div id="already-saved" class="hidden">
+      <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+        <p class="text-blue-800 text-sm">
+          You've already saved this problem!
+        </p>
+      </div>
+      
+      <div class="mb-4">
+        <h2 class="font-medium mb-1">Problem Title</h2>
+        <p id="saved-title" class="text-sm bg-white border rounded-md p-2">-</p>
+      </div>
+      
+      <div class="mb-4">
+        <h2 class="font-medium mb-1">Saved in Topic</h2>
+        <p id="saved-topic" class="text-sm">-</p>
+      </div>
+      
+      <div class="flex gap-2">
+        <button id="view-button" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-md">
+          View in App
+        </button>
+        <button id="remove-button" class="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-md">
+          Remove
+        </button>
+      </div>
+    </div>
+    
+    <div class="mt-4 pt-4 border-t border-gray-200">
+      <a href="https://v0-chrome-extension-project-three.vercel.app" target="_blank" class="text-sm text-blue-600 hover:underline">
+        Open CodeTracker Web App
+      </a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
