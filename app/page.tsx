@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Search, Filter, ArrowUpDown, CheckCircle2, ExternalLink, Trash2 } from "lucide-react"
+import {
+  Search,
+  Filter,
+  ArrowUpDown,
+  CheckCircle2,
+  ExternalLink,
+  Trash2,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -37,11 +44,9 @@ export default function Home() {
       try {
         setLoading(true)
 
-        // Fetch topics
         const topicsRes = await fetch("/api/topics")
         const topicsData = await topicsRes.json()
 
-        // Fetch recent problems
         const problemsRes = await fetch("/api/problems?limit=20")
         const problemsData = await problemsRes.json()
 
@@ -57,20 +62,17 @@ export default function Home() {
     fetchData()
   }, [])
 
-  // Toggle completion status for a problem
   const toggleCompletion = async (problemId: string) => {
     const target = problems.find((p) => p.id === problemId)
     if (!target) return
 
     try {
-      // Optimistically update UI
       setProblems((prev) =>
         prev.map((p) =>
           p.id === problemId ? { ...p, completed: !p.completed } : p
         )
       )
 
-      // Send PATCH to backend
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -78,7 +80,6 @@ export default function Home() {
       })
 
       if (!res.ok) {
-        // Revert if API call failed
         setProblems((prev) =>
           prev.map((p) =>
             p.id === problemId ? { ...p, completed: target.completed } : p
@@ -87,7 +88,6 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error toggling completion:", error)
-      // Revert on error
       setProblems((prev) =>
         prev.map((p) =>
           p.id === problemId ? { ...p, completed: target.completed } : p
@@ -96,12 +96,10 @@ export default function Home() {
     }
   }
 
-  // Delete a problem
   const deleteProblem = async (problemId: string) => {
     const target = problems.find((p) => p.id === problemId)
     if (!target) return
 
-    // Optimistically remove from UI
     setProblems((prev) => prev.filter((p) => p.id !== problemId))
 
     try {
@@ -109,13 +107,11 @@ export default function Home() {
         method: "DELETE",
       })
       if (!res.ok) {
-        // Revert if deletion failed
         setProblems((prev) => [...prev, target])
         console.error(`Failed to delete problem: ${res.status}`)
       }
     } catch (error) {
       console.error("Error deleting problem:", error)
-      // Revert on error
       setProblems((prev) => [...prev, target])
     }
   }
@@ -167,112 +163,111 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Problem List */}
-        <div className="space-y-1">
-          {filteredProblems.map((problem, index) => (
-            <motion.div
-              key={problem.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: index * 0.05 }}
-            >
-              <div
-                className={`flex items-center h-16 p-4 rounded-md hover:bg-muted/50 ${
-                  problem.completed ? "border-l-4 border-green-500" : ""
-                }`}
+        {/* Loading State */}
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">
+            Loading...
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {filteredProblems.map((problem, index) => (
+              <motion.div
+                key={problem.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
               >
-                {/* 1) Completion Toggle */}
                 <div
-                  onClick={() => toggleCompletion(problem.id)}
-                  className="w-6 mr-4 flex-shrink-0 text-muted-foreground cursor-pointer"
+                  className={`flex items-center h-16 p-4 rounded-md hover:bg-muted/50 ${
+                    problem.completed ? "border-l-4 border-green-500" : ""
+                  }`}
                 >
-                  {problem.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border border-muted-foreground/30"></div>
-                  )}
-                </div>
-
-                {/* 2) Link to Problem Description */}
-                <Link
-                  href={`/problem/${problem.id}`}
-                  className="flex items-center flex-1 ml-4 truncate"
-                >
-                  {/* Problem Number */}
-                  <div className="w-12 mr-4 flex-shrink-0 font-mono">
-                    {problem.number}.
-                  </div>
-
-                  {/* Title */}
-                  <div className="flex-1 font-medium truncate">
-                    {problem.title}
-                  </div>
-
-                  {/* Tags (up to 2, single line) */}
-                  <div className="flex-shrink-0 w-36 ml-2 mr-4 overflow-hidden whitespace-nowrap">
-                    {problem.tags && problem.tags.length > 0 && (
-                      <>
-                        {problem.tags.slice(0, 2).map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="inline-block mr-1 text-sm px-2 py-1"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {problem.tags.length > 2 && (
-                          <Badge
-                            variant="outline"
-                            className="inline-block mr-1 text-sm px-2 py-1"
-                          >
-                            +{problem.tags.length - 2}
-                          </Badge>
-                        )}
-                      </>
+                  {/* Completion Toggle */}
+                  <div
+                    onClick={() => toggleCompletion(problem.id)}
+                    className="w-6 mr-4 flex-shrink-0 text-muted-foreground cursor-pointer"
+                  >
+                    {problem.completed ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border border-muted-foreground/30"></div>
                     )}
                   </div>
 
-                  {/* Difficulty */}
-                  <div className="w-24 flex-shrink-0 text-right">
-                    <Badge
-                      variant="outline"
-                      className={`${
-                        problem.difficulty === "Easy"
-                          ? "text-green-500 border-green-500/30"
-                          : problem.difficulty === "Medium"
-                          ? "text-yellow-500 border-yellow-500/30"
-                          : "text-red-500 border-red-500/30"
-                      }`}
-                    >
-                      {problem.difficulty}
-                    </Badge>
-                  </div>
-                </Link>
-
-                {/* 3) External Solve Link */}
-                <div className="w-8 ml-4 flex-shrink-0 text-center">
-                  <a
-                    href={problem.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block"
+                  {/* Link to Problem Description */}
+                  <Link
+                    href={`/problem/${problem.id}`}
+                    className="flex items-center flex-1 ml-4 truncate"
                   >
-                    <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                  </a>
-                </div>
+                    <div className="w-12 mr-4 flex-shrink-0 font-mono">
+                      {problem.number}.
+                    </div>
+                    <div className="flex-1 font-medium truncate">
+                      {problem.title}
+                    </div>
+                    <div className="flex-shrink-0 w-36 ml-2 mr-4 overflow-hidden whitespace-nowrap">
+                      {problem.tags && problem.tags.length > 0 && (
+                        <>
+                          {problem.tags.slice(0, 2).map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="inline-block mr-1 text-sm px-2 py-1"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {problem.tags.length > 2 && (
+                            <Badge
+                              variant="outline"
+                              className="inline-block mr-1 text-sm px-2 py-1"
+                            >
+                              +{problem.tags.length - 2}
+                            </Badge>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="w-24 flex-shrink-0 text-right">
+                      <Badge
+                        variant="outline"
+                        className={`${
+                          problem.difficulty === "Easy"
+                            ? "text-green-500 border-green-500/30"
+                            : problem.difficulty === "Medium"
+                            ? "text-yellow-500 border-yellow-500/30"
+                            : "text-red-500 border-red-500/30"
+                        }`}
+                      >
+                        {problem.difficulty}
+                      </Badge>
+                    </div>
+                  </Link>
 
-                {/* 4) Delete Button */}
-                <div
-                  onClick={() => deleteProblem(problem.id)}
-                  className="w-8 ml-2 flex-shrink-0 text-center cursor-pointer"
-                >
-                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />
+                  {/* External Link */}
+                  <div className="w-8 ml-4 flex-shrink-0 text-center">
+                    <a
+                      href={problem.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                    >
+                      <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    </a>
+                  </div>
+
+                  {/* Delete Button */}
+                  <div
+                    onClick={() => deleteProblem(problem.id)}
+                    className="w-8 ml-2 flex-shrink-0 text-center cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

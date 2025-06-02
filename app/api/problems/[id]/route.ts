@@ -6,25 +6,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// ─── GET problem by ID ─────────────────────────────────────────────
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    // Await params before using its properties
-    const { id } = await params;
+  // Await the `params` promise before destructuring
+  const { id } = await params;
 
-    // Get problem details
+  try {
     const { data: problem, error } = await supabase
       .from("problems")
-      .select(`
-        *,
-        topics (
-          id,
-          name,
-          slug
-        )
-      `)
+      .select(`*, topics ( id, name, slug )`)
       .eq("id", id)
       .single();
 
@@ -40,13 +33,12 @@ export async function GET(
       return NextResponse.json({ error: "Problem not found" }, { status: 404 });
     }
 
-    // Format problem to match the expected structure
     const formattedProblem = {
       ...problem,
       topic_id: problem.topics?.id,
       topic_name: problem.topics?.name,
-      number: problem.number || String(Math.floor(Math.random() * 1000) + 1), // Fallback if number is not set
-      success_rate: Math.floor(Math.random() * 60) + 20, // Random success rate for demo
+      number: problem.number || String(Math.floor(Math.random() * 1000) + 1),
+      success_rate: Math.floor(Math.random() * 60) + 20,
     };
 
     return NextResponse.json({ problem: formattedProblem });
@@ -59,17 +51,18 @@ export async function GET(
   }
 }
 
+// ─── PATCH update problem ───────────────────────────────────────────
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
-    // Await params before using its properties
-    const { id } = await params;
     const body = await request.json();
     const { completed, notes } = body;
 
-    const updateData: any = {};
+    const updateData: Partial<{ completed: boolean; notes: string }> = {};
     if (typeof completed === "boolean") updateData.completed = completed;
     if (typeof notes === "string") updateData.notes = notes;
 
@@ -95,14 +88,14 @@ export async function PATCH(
   }
 }
 
+// ─── DELETE problem by ID ───────────────────────────────────────────
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    // Await params before using its properties
-    const { id } = await params;
+  const { id } = await params;
 
+  try {
     const { error } = await supabase.from("problems").delete().eq("id", id);
 
     if (error) {
