@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     // 1) Fetch all topics (id, name, slug, description), ordered by name
     const { data: topics, error } = await supabase

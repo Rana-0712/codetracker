@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ slug: string }> } // ← params is now a Promise
 ) {
   try {

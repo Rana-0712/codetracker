@@ -8,7 +8,7 @@ const supabase = createClient(
 
 // ─── GET problem by ID ─────────────────────────────────────────────
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // Await the `params` promise before destructuring
@@ -90,7 +90,7 @@ export async function PATCH(
 
 // ─── DELETE problem by ID ───────────────────────────────────────────
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
