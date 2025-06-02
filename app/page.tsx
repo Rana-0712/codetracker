@@ -148,23 +148,6 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Button variant="outline" className="rounded-full">
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            All Topics
-          </Button>
-          <Button variant="outline" className="rounded-full">
-            Algorithms
-          </Button>
-          <Button variant="outline" className="rounded-full">
-            Database
-          </Button>
-          <Button variant="outline" className="rounded-full">
-            Shell
-          </Button>
-        </div>
-
         {/* Search Bar */}
         <div className="flex gap-2 mb-6">
           <div className="relative flex-1">
