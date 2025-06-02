@@ -1,19 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import Link from "next/link"
-import { ArrowLeft, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { createClient } from "@supabase/supabase-js"
-import ProblemList from "@/components/problem-list"
+import Link from "next/link";
+import { ArrowLeft, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createClient } from "@supabase/supabase-js";
+import ProblemList from "@/components/problem-list";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+);
 
 async function searchProblems(query: string) {
-  if (!query) return []
+  if (!query) return [];
 
   const { data: problems } = await supabase
     .from("problems")
@@ -21,14 +21,18 @@ async function searchProblems(query: string) {
     .or(
       `title.ilike.%${query}%, description.ilike.%${query}%, tags.cs.{${query}}`
     )
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false });
 
-  return problems || []
+  return problems || [];
 }
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
-  const query = searchParams.q || ""
-  const problems = await searchProblems(query)
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q: query } = await searchParams;
+  const problems = await searchProblems(query || "");
 
   return (
     <div className="container mx-auto p-4">
@@ -59,7 +63,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       {query && (
         <div className="mb-4">
           <p className="text-muted-foreground">
-            {problems.length} result{problems.length !== 1 ? "s" : ""} for{" "}
+            {problems.length} result{problems.length !== 1 ? "s" : ""} for
             &quot;{query}&quot;
           </p>
         </div>
@@ -92,5 +96,5 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         </div>
       )}
     </div>
-  )
+  );
 }
