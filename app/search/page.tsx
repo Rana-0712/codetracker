@@ -26,16 +26,7 @@ async function searchProblems(query: string) {
   return problems || []
 }
 
-export default async function SearchPage({
-  params,
-  searchParams,
-}: {
-  // “params” must exist to satisfy Next.js PageProps,
-  // but we really have no dynamic segments here,
-  // so use `Record<string, never>` instead of `{}` to avoid the ESLint ban.
-  params: Record<string, never>
-  searchParams: { q?: string }
-}) {
+export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const query = searchParams.q || ""
   const problems = await searchProblems(query)
 
