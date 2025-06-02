@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Saved to local storage")
 
         // Also save to web app via API
-        fetch("https://v0-chrome-extension-project-three.vercel.app/api/problems", {
+        fetch("https://codetracker-psi.vercel.app/api/problems", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   viewButton.addEventListener("click", () => {
     // Open the web app
     chrome.tabs.create({
-      url: "https://v0-chrome-extension-project-three.vercel.app",
+      url: "https://codetracker-psi.vercel.app",
     })
   })
 

@@ -29,7 +29,7 @@ async function syncWithWebApp() {
 
     if (savedProblems && savedProblems.length > 0) {
       // Send data to backend
-      const response = await fetch("http://localhost:3000/api/problems", {
+      const response = await fetch("https://codetracker-psi.vercel.app/api/problems", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
