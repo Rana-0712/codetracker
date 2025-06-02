@@ -8,14 +8,14 @@ const supabase = createClient(
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> } // ← params is now a Promise
 ) {
   try {
-    // Await params before using its properties
+    // Await the params promise before destructuring
     const { slug } = await params;
     console.log("Fetching topic details for slug:", slug);
 
-    // Get topic details
+    // 1) Get topic by slug
     const { data: topic, error: topicError } = await supabase
       .from("topics")
       .select("*")
@@ -29,7 +29,7 @@ export async function GET(
 
     console.log("Found topic:", topic);
 
-    // Get problem counts by difficulty
+    // 2) Get all problems under this topic (only need difficulty & completed)
     const { data: problems, error: problemsError } = await supabase
       .from("problems")
       .select("difficulty, completed")
@@ -43,12 +43,11 @@ export async function GET(
       );
     }
 
+    // 3) Compute counts
     const total_count = problems?.length || 0;
     const easy_count = problems?.filter((p) => p.difficulty === "Easy").length || 0;
-    const medium_count =
-      problems?.filter((p) => p.difficulty === "Medium").length || 0;
-    const hard_count =
-      problems?.filter((p) => p.difficulty === "Hard").length || 0;
+    const medium_count = problems?.filter((p) => p.difficulty === "Medium").length || 0;
+    const hard_count = problems?.filter((p) => p.difficulty === "Hard").length || 0;
     const solved_count = problems?.filter((p) => p.completed).length || 0;
 
     const topicWithStats = {
@@ -58,11 +57,10 @@ export async function GET(
       medium_count,
       hard_count,
       solved_count,
-      last_updated: new Date().toLocaleDateString(),
+      last_updated: new Date().toLocaleDateString(), // your chosen format
     };
 
     console.log("Topic with stats:", topicWithStats);
-
     return NextResponse.json({ topic: topicWithStats });
   } catch (err) {
     console.error("Error:", err);
