@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,8 +27,10 @@ async function searchProblems(query: string) {
 }
 
 export default async function SearchPage({
+  params,
   searchParams,
 }: {
+  params: {};
   searchParams: { q?: string };
 }) {
   const query = searchParams.q || "";
@@ -61,7 +65,7 @@ export default async function SearchPage({
       {query && (
         <div className="mb-4">
           <p className="text-muted-foreground">
-            {problems.length} result{problems.length !== 1 ? "s" : ""} for
+            {problems.length} result{problems.length !== 1 ? "s" : ""} for{" "}
             &quot;{query}&quot;
           </p>
         </div>
