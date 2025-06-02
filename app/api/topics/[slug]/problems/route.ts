@@ -8,14 +8,14 @@ const supabase = createClient(
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }   // ← Notice Promise<…> here
 ) {
   try {
-    // Await params before using its properties
+    // await the params before destructuring
     const { slug } = await params;
     console.log("Fetching problems for topic slug:", slug);
 
-    // Get topic ID from slug
+    // 1) Look up the topic by slug
     const { data: topic, error: topicError } = await supabase
       .from("topics")
       .select("id, name")
@@ -29,7 +29,7 @@ export async function GET(
 
     console.log("Found topic:", topic);
 
-    // Get problems for this topic
+    // 2) Now fetch all problems whose topic_id matches topic.id
     const { data: problems, error } = await supabase
       .from("problems")
       .select("*")
@@ -41,21 +41,22 @@ export async function GET(
       return NextResponse.json({ error: "Failed to fetch problems" }, { status: 500 });
     }
 
-    console.log(
-      `Found ${problems?.length || 0} problems for topic ${topic.name}`
-    );
+    console.log(`Found ${problems?.length || 0} problems for topic ${topic.name}`);
 
-    // Format problems to match the expected structure
+    // 3) Format each problem (e.g. add a random success_rate, or fallback numbering)
     const formattedProblems =
       problems?.map((problem, index) => ({
         ...problem,
         number: problem.number || String(index + 1),
-        success_rate: Math.floor(Math.random() * 60) + 20, // Random success rate for demo
+        success_rate: Math.floor(Math.random() * 60) + 20,
       })) || [];
 
     return NextResponse.json({ problems: formattedProblems });
   } catch (err) {
     console.error("Error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
