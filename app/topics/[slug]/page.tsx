@@ -1,8 +1,9 @@
-"use client"
+// app/topics/[slug]/page.tsx
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   Search,
   Filter,
@@ -14,99 +15,135 @@ import {
   Clock,
   RefreshCw,
   Trash2,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { motion } from "framer-motion"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { motion } from "framer-motion";
+
+// Import your Supabase client (anon key) to read the session
+import { supabase } from "@/lib/supabaseClient";
 
 interface Topic {
-  id: string
-  name: string
-  slug: string
-  description?: string
-  total_count: number
-  easy_count: number
-  medium_count: number
-  hard_count: number
-  solved_count: number
-  last_updated?: string
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  total_count: number;
+  easy_count: number;
+  medium_count: number;
+  hard_count: number;
+  solved_count: number;
+  last_updated?: string;
 }
 
 interface Problem {
-  id: string
-  title: string
-  number: string
-  difficulty: string
-  completed: boolean
-  url: string
-  platform: string
-  tags?: string[]
-  success_rate?: number
+  id: string;
+  title: string;
+  number: string;
+  difficulty: string;
+  completed: boolean;
+  url: string;
+  platform: string;
+  tags?: string[];
+  success_rate?: number;
 }
 
 export default function TopicPage() {
-  const params = useParams()
-  const slug = params.slug as string
+  const params = useParams();
+  const slug = params.slug as string;
 
-  const [topic, setTopic] = useState<Topic | null>(null)
-  const [problems, setProblems] = useState<Problem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [topic, setTopic] = useState<Topic | null>(null);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // NEW: store the JWT once we fetch the session
+  const [token, setToken] = useState<string>("");
 
   useEffect(() => {
+    // On mount, get the Supabase session (access_token)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setToken(data.session.access_token);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Only fetch once we have both slug and token
+    if (!slug || !token) return;
+
     const fetchData = async () => {
       try {
-        setLoading(true)
+        setLoading(true);
 
-        // Fetch topic details
-        const topicRes = await fetch(`/api/topics/${encodeURIComponent(slug)}`)
+        // 1) Fetch topic details with Authorization header
+        const topicRes = await fetch(
+          `/api/topics/${encodeURIComponent(slug)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
         if (!topicRes.ok) {
-          throw new Error(`Failed to fetch topic: ${topicRes.status}`)
+          throw new Error(`Failed to fetch topic: ${topicRes.status}`);
         }
-        const topicData = await topicRes.json()
+        const topicData = await topicRes.json();
 
-        // Fetch problems for this topic
-        const problemsRes = await fetch(`/api/topics/${encodeURIComponent(slug)}/problems`)
+        // 2) Fetch problems for this topic with Authorization header
+        const problemsRes = await fetch(
+          `/api/topics/${encodeURIComponent(slug)}/problems`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
         if (!problemsRes.ok) {
-          throw new Error(`Failed to fetch problems: ${problemsRes.status}`)
+          throw new Error(`Failed to fetch problems: ${problemsRes.status}`);
         }
-        const problemsData = await problemsRes.json()
+        const problemsData = await problemsRes.json();
 
-        setTopic(topicData.topic || null)
-        setProblems(problemsData.problems || [])
+        setTopic(topicData.topic || null);
+        setProblems(problemsData.problems || []);
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Error fetching data:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    if (slug) {
-      fetchData()
-    }
-  }, [slug])
+    fetchData();
+  }, [slug, token]);
 
   // Toggle completion status for a problem
   const toggleCompletion = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId)
-    if (!target) return
+    const target = problems.find((p) => p.id === problemId);
+    if (!target || !token) return;
+
+    // Optimistically update UI
+    setProblems((prev) =>
+      prev.map((p) =>
+        p.id === problemId ? { ...p, completed: !p.completed } : p
+      )
+    );
 
     try {
-      // Optimistically update UI
-      setProblems((prev) =>
-        prev.map((p) =>
-          p.id === problemId ? { ...p, completed: !p.completed } : p
-        )
-      )
-
-      // Send PATCH to backend
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // include token
+        },
         body: JSON.stringify({ completed: !target.completed }),
-      })
+      });
 
       if (!res.ok) {
         // Revert if API call failed
@@ -114,58 +151,70 @@ export default function TopicPage() {
           prev.map((p) =>
             p.id === problemId ? { ...p, completed: target.completed } : p
           )
-        )
+        );
       }
     } catch (error) {
-      console.error("Error toggling completion:", error)
+      console.error("Error toggling completion:", error);
       // Revert on error
       setProblems((prev) =>
         prev.map((p) =>
           p.id === problemId ? { ...p, completed: target.completed } : p
         )
-      )
+      );
     }
-  }
+  };
 
   // Delete a problem
   const deleteProblem = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId)
-    if (!target) return
+    const target = problems.find((p) => p.id === problemId);
+    if (!target || !token) return;
 
     // Optimistically remove from UI
-    setProblems((prev) => prev.filter((p) => p.id !== problemId))
+    setProblems((prev) => prev.filter((p) => p.id !== problemId));
 
     try {
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "DELETE",
-      })
+        headers: {
+          Authorization: `Bearer ${token}`, // include token
+        },
+      });
       if (!res.ok) {
-        // If deletion failed, re-add the problem to state
-        setProblems((prev) => [...prev, target])
-        console.error(`Failed to delete problem: ${res.status}`)
+        // Re‐add if deletion failed
+        setProblems((prev) => [...prev, target]);
+        console.error(`Failed to delete problem: ${res.status}`);
       }
     } catch (error) {
-      console.error("Error deleting problem:", error)
+      console.error("Error deleting problem:", error);
       // Revert on error
-      setProblems((prev) => [...prev, target])
+      setProblems((prev) => [...prev, target]);
     }
-  }
+  };
 
   const filteredProblems = problems.filter(
     (problem) =>
       problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      problem.number.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+      problem.number.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (!topic) {
-    return <div className="flex justify-center items-center h-screen">Topic not found</div>
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Topic not found
+      </div>
+    );
   }
 
-  const solvedPercentage = Math.round((topic.solved_count / topic.total_count) * 100) || 0
+  const solvedPercentage =
+    Math.round((topic.solved_count / topic.total_count) * 100) || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,22 +265,34 @@ export default function TopicPage() {
                 <div>
                   <h3 className="text-lg font-medium mb-2">Progress</h3>
                   <div className="text-center mb-2">
-                    <div className="text-4xl font-bold">{topic.solved_count}</div>
-                    <div className="text-sm text-muted-foreground">Solved</div>
+                    <div className="text-4xl font-bold">
+                      {topic.solved_count}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Solved
+                    </div>
                   </div>
                   <Progress value={solvedPercentage} className="h-2 mb-4" />
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-muted p-3 rounded-md text-center">
-                      <div className="text-green-500 font-medium">{topic.easy_count}</div>
+                      <div className="text-green-500 font-medium">
+                        {topic.easy_count}
+                      </div>
                       <div className="text-xs text-muted-foreground">Easy</div>
                     </div>
                     <div className="bg-muted p-3 rounded-md text-center">
-                      <div className="text-yellow-500 font-medium">{topic.medium_count}</div>
-                      <div className="text-xs text-muted-foreground">Medium</div>
+                      <div className="text-yellow-500 font-medium">
+                        {topic.medium_count}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Medium
+                      </div>
                     </div>
                     <div className="bg-muted p-3 rounded-md text-center">
-                      <div className="text-red-500 font-medium">{topic.hard_count}</div>
+                      <div className="text-red-500 font-medium">
+                        {topic.hard_count}
+                      </div>
                       <div className="text-xs text-muted-foreground">Hard</div>
                     </div>
                   </div>
@@ -371,5 +432,5 @@ export default function TopicPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

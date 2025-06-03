@@ -1,77 +1,92 @@
-"use client"
+// app/components/EnhancedProblemList.tsx   (or wherever you keep this file)
+// ─────────────────────────────────────────────────────────────────────────────
+"use client";
 
-import { useState } from "react"
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, ExternalLink, Star, Youtube, Infinity } from "lucide-react"
-import Link from "next/link"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useEffect } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  ExternalLink,
+  Star,
+  Youtube,
+  Infinity,
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 
+import { useAuth } from "@/context/AuthContext";            // <–– adjust path as needed
+import { supabase } from "@/lib/supabaseClient";            // <–– adjust path as needed
+
+// ── Define the Problem type (match your database)
 interface Problem {
-  id: string
-  name: string
-  difficulty: string
-  completed: boolean
-  url: string
-  platform?: string
-  companies?: string[]
-  tags?: string[]
-  isBookmarked?: boolean
+  id: string;
+  name: string;
+  difficulty: string;
+  completed: boolean;
+  url: string;
+  platform?: string;
+  companies?: string[];
+  tags?: string[];
+  isBookmarked?: boolean;
 }
 
+// ── Only need title and “expanded” as props now
 interface EnhancedProblemListProps {
-  title: string
-  problems: Problem[]
-  expanded?: boolean
+  title: string;
+  expanded?: boolean;
 }
 
 function getPlatformIcon(platform?: string) {
   switch (platform?.toLowerCase()) {
     case "leetcode":
-      return <Infinity className="h-4 w-4 text-orange-500" />
+      return <Infinity className="h-4 w-4 text-orange-500" />;
     case "youtube":
-      return <Youtube className="h-4 w-4 text-red-500" />
+      return <Youtube className="h-4 w-4 text-red-500" />;
     case "geeksforgeeks":
       return (
         <div className="w-4 h-4 bg-green-500 rounded text-xs flex items-center justify-center text-white font-bold">
           G
         </div>
-      )
+      );
     case "interviewbit":
       return (
         <div className="w-4 h-4 bg-blue-500 rounded text-xs flex items-center justify-center text-white font-bold">
           I
         </div>
-      )
+      );
     case "codechef":
       return (
         <div className="w-4 h-4 bg-purple-500 rounded text-xs flex items-center justify-center text-white font-bold">
           C
         </div>
-      )
+      );
     case "codeforces":
       return (
         <div className="w-4 h-4 bg-red-500 rounded text-xs flex items-center justify-center text-white font-bold">
           CF
         </div>
-      )
+      );
     default:
-      return <Infinity className="h-4 w-4 text-gray-500" />
+      return <Infinity className="h-4 w-4 text-gray-500" />;
   }
 }
 
 function getDifficultyColor(difficulty: string) {
   switch (difficulty.toLowerCase()) {
     case "easy":
-      return "text-green-500 bg-green-500/10 border-green-500/20"
+      return "text-green-500 bg-green-500/10 border-green-500/20";
     case "medium":
-      return "text-orange-500 bg-orange-500/10 border-orange-500/20"
+      return "text-orange-500 bg-orange-500/10 border-orange-500/20";
     case "hard":
-      return "text-red-500 bg-red-500/10 border-red-500/20"
+      return "text-red-500 bg-red-500/10 border-red-500/20";
     case "basic":
-      return "text-blue-500 bg-blue-500/10 border-blue-500/20"
+      return "text-blue-500 bg-blue-500/10 border-blue-500/20";
     default:
-      return "text-gray-500 bg-gray-500/10 border-gray-500/20"
+      return "text-gray-500 bg-gray-500/10 border-gray-500/20";
   }
 }
 
@@ -83,23 +98,93 @@ async function toggleProblemCompletion(problemId: string, completed: boolean) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ completed: !completed }),
-    })
+    });
 
     if (response.ok) {
-      window.location.reload()
+      // Simple approach: reload the page so our list refetches
+      window.location.reload();
     }
   } catch (error) {
-    console.error("Error updating problem:", error)
+    console.error("Error updating problem:", error);
   }
 }
 
-export default function EnhancedProblemList({ title, problems, expanded = false }: EnhancedProblemListProps) {
-  const [isExpanded, setIsExpanded] = useState(expanded)
-  const completedCount = problems.filter((p) => p.completed).length
+export default function EnhancedProblemList({
+  title,
+  expanded = false,
+}: EnhancedProblemListProps) {
+  const [isExpanded, setIsExpanded] = useState(expanded);
+  const [myProblems, setMyProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  if (problems.length === 0) {
-    return null
+  const { user } = useAuth();
+
+  // ── Fetch only this user’s saved problems when `user` is defined
+  useEffect(() => {
+  if (!user) {
+    setMyProblems([]);
+    setLoading(false);
+    return;
   }
+
+  setLoading(true);
+  supabase
+    .from("problems")
+    .select(`
+      id,
+      name,
+      difficulty,
+      completed,
+      url,
+      platform,
+      companies,
+      tags
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .then(({ data, error }) => {
+      if (error) {
+        console.error("Error fetching user’s problems:", error);
+        setErrorMessage(error.message);
+        setMyProblems([]);
+      } else {
+        setMyProblems((data as Problem[]) || []);
+      }
+      setLoading(false);
+    });
+}, [user]);
+
+
+  // ── If not signed in, prompt to sign in
+  if (!user) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        Please sign in to see your saved problems.
+      </div>
+    );
+  }
+
+  // ── If still loading
+  if (loading) {
+    return (
+      <div className="p-4 text-center">Loading your saved problems…</div>
+    );
+  }
+
+  // ── If no problems or there was an error
+  if (myProblems.length === 0) {
+    return (
+      <div className="p-4 text-center text-gray-700">
+        {errorMessage
+          ? `Error: ${errorMessage}`
+          : "You haven’t saved any problems yet."}
+      </div>
+    );
+  }
+
+  // ── At this point, we have at least one problem in `myProblems`
+  const completedCount = myProblems.filter((p) => p.completed).length;
 
   return (
     <motion.div
@@ -122,7 +207,7 @@ export default function EnhancedProblemList({ title, problems, expanded = false 
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {completedCount} / {problems.length}
+            {completedCount} / {myProblems.length}
           </span>
           <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -140,7 +225,7 @@ export default function EnhancedProblemList({ title, problems, expanded = false 
             className="overflow-hidden"
           >
             <div className="divide-y divide-border/30">
-              {problems.map((problem, index) => (
+              {myProblems.map((problem, index) => (
                 <motion.div
                   key={problem.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -219,20 +304,12 @@ export default function EnhancedProblemList({ title, problems, expanded = false 
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="p-1 hover:bg-muted rounded"
-                      >
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-1 hover:bg-muted rounded">
                         <Star className="h-4 w-4 text-yellow-500" />
                       </motion.button>
 
                       <Link href={problem.url} target="_blank">
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-1 hover:bg-muted rounded"
-                        >
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-1 hover:bg-muted rounded">
                           <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
                         </motion.div>
                       </Link>
@@ -245,5 +322,5 @@ export default function EnhancedProblemList({ title, problems, expanded = false 
         )}
       </AnimatePresence>
     </motion.div>
-  )
+  );
 }

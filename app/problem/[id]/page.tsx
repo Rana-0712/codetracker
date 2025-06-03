@@ -1,116 +1,187 @@
-"use client"
+// app/problem/[id]/page.tsx
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, ExternalLink, CheckCircle2, Circle, BookOpen, Code, MessageSquare } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ExternalLink,
+  CheckCircle2,
+  Circle,
+  BookOpen,
+  Code,
+  MessageSquare,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+
+// Import your Supabase client (anon key) to read the session
+import { supabase } from "@/lib/supabaseClient";
+//—or— if you’re using AuthContext:
+// import { useAuth } from "@/context/AuthContext";
 
 interface Problem {
-  id: string
-  title: string
-  number: string
-  difficulty: string
-  completed: boolean
-  url: string
-  platform: string
-  description: string
-  notes: string
-  topic_id: string
-  topic_name?: string
-  companies?: string[]
-  tags?: string[]
-  success_rate?: number
+  id: string;
+  title: string;
+  number: string;
+  difficulty: string;
+  completed: boolean;
+  url: string;
+  platform: string;
+  description: string;
+  notes: string;
+  topic_id: string;
+  topic_name?: string;
+  companies?: string[];
+  tags?: string[];
+  success_rate?: number;
 }
 
 export default function ProblemPage() {
-  const params = useParams()
-  const id = params.id as string
+  const params = useParams();
+  const id = params.id as string;
 
-  const [problem, setProblem] = useState<Problem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [notes, setNotes] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState("description")
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("description");
 
+  // New: store the JWT here once we have it
+  const [token, setToken] = useState<string>("");
+
+  // 1) On mount, grab the existing Supabase session (JWT)
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setToken(data.session.access_token);
+      }
+    });
+
+    // If you used AuthContext, you’d do:
+    // const { session } = useAuth();
+    // useEffect(() => {
+    //   if (session) setToken(session.access_token);
+    // }, [session]);
+  }, []);
+
+  // 2) Now that we have `token`, fetch the problem details
+  useEffect(() => {
+    if (!id) return;
+    if (!token) {
+      // Don’t fetch until the token is loaded
+      return;
+    }
+
     const fetchData = async () => {
       try {
-        setLoading(true)
+        setLoading(true);
 
-        // Fetch problem details
-        const res = await fetch(`/api/problems/${id}`)
-        const data = await res.json()
+        // Fetch problem details, including Authorization
+        const res = await fetch(`/api/problems/${id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-        setProblem(data.problem || null)
-        setNotes(data.problem?.notes || "")
+        if (!res.ok) {
+          console.error("Fetch error status:", res.status);
+          setProblem(null);
+          return;
+        }
+
+        const data = await res.json();
+        setProblem(data.problem || null);
+        setNotes(data.problem?.notes || "");
       } catch (error) {
-        console.error("Error fetching problem:", error)
+        console.error("Error fetching problem:", error);
+        setProblem(null);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    if (id) {
-      fetchData()
-    }
-  }, [id])
+    fetchData();
+  }, [id, token]);
 
+  // 3) PATCH to update notes, including Authorization
   const handleSaveNotes = async () => {
-    if (!problem) return
+    if (!problem || !token) return;
 
     try {
-      setSaving(true)
+      setSaving(true);
 
       const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ notes }),
-      })
+      });
 
       if (res.ok) {
-        const data = await res.json()
-        setProblem({ ...problem, notes: data.problem.notes })
+        const data = await res.json();
+        setProblem({ ...problem, notes: data.problem.notes });
+      } else {
+        console.error("Save notes failed: status", res.status);
       }
     } catch (error) {
-      console.error("Error saving notes:", error)
+      console.error("Error saving notes:", error);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
+  // 4) PATCH to toggle completion, including Authorization
   const toggleCompletion = async () => {
-    if (!problem) return
+    if (!problem || !token) return;
 
     try {
       const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ completed: !problem.completed }),
-      })
+      });
 
       if (res.ok) {
-        const data = await res.json()
-        setProblem({ ...problem, completed: data.problem.completed })
+        const data = await res.json();
+        setProblem({ ...problem, completed: data.problem.completed });
+      } else {
+        console.error("Toggle completion failed: status", res.status);
       }
     } catch (error) {
-      console.error("Error toggling completion:", error)
+      console.error("Error toggling completion:", error);
     }
-  }
+  };
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (!problem) {
-    return <div className="flex justify-center items-center h-screen">Problem not found</div>
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Problem not found
+      </div>
+    );
   }
 
   return (
@@ -131,22 +202,22 @@ export default function ProblemPage() {
                 </h1>
                 <Badge
                   variant="outline"
-                  className={`
-                    ${
-                      problem.difficulty === "Easy"
-                        ? "text-green-500 border-green-500/30"
-                        : problem.difficulty === "Medium"
-                          ? "text-yellow-500 border-yellow-500/30"
-                          : "text-red-500 border-red-500/30"
-                    }
-                  `}
+                  className={`${
+                    problem.difficulty === "Easy"
+                      ? "text-green-500 border-green-500/30"
+                      : problem.difficulty === "Medium"
+                      ? "text-yellow-500 border-yellow-500/30"
+                      : "text-red-500 border-red-500/30"
+                  }`}
                 >
                   {problem.difficulty}
                 </Badge>
               </div>
               {problem.topic_name && (
                 <Link href={`/topics/${problem.topic_id}`}>
-                  <span className="text-sm text-muted-foreground hover:text-primary">{problem.topic_name}</span>
+                  <span className="text-sm text-muted-foreground hover:text-primary">
+                    {problem.topic_name}
+                  </span>
                 </Link>
               )}
             </div>
@@ -179,21 +250,37 @@ export default function ProblemPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="md:col-span-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
               <TabsList className="grid grid-cols-4 mb-4">
-                <TabsTrigger value="description" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="description"
+                  className="flex items-center gap-2"
+                >
                   <BookOpen className="h-4 w-4" />
                   Description
                 </TabsTrigger>
-                <TabsTrigger value="solution" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="solution"
+                  className="flex items-center gap-2"
+                >
                   <Code className="h-4 w-4" />
                   Solution
                 </TabsTrigger>
-                <TabsTrigger value="notes" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="notes"
+                  className="flex items-center gap-2"
+                >
                   <MessageSquare className="h-4 w-4" />
                   Notes
                 </TabsTrigger>
-                <TabsTrigger value="discussion" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="discussion"
+                  className="flex items-center gap-2"
+                >
                   <MessageSquare className="h-4 w-4" />
                   Discussion
                 </TabsTrigger>
@@ -202,14 +289,20 @@ export default function ProblemPage() {
               <TabsContent value="description" className="mt-0">
                 <div className="bg-card rounded-lg p-6 border border-border">
                   <div className="prose dark:prose-invert max-w-none">
-                    <div dangerouslySetInnerHTML={{ __html: problem.description }} />
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: problem.description,
+                      }}
+                    />
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="solution" className="mt-0">
                 <div className="bg-card rounded-lg p-6 border border-border">
-                  <p className="text-muted-foreground">No solution available yet.</p>
+                  <p className="text-muted-foreground">
+                    No solution available yet.
+                  </p>
                 </div>
               </TabsContent>
 
@@ -242,40 +335,50 @@ export default function ProblemPage() {
 
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Difficulty</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Difficulty
+                  </h4>
                   <p
-                    className={`
-                    ${
+                    className={`${
                       problem.difficulty === "Easy"
                         ? "text-green-500"
                         : problem.difficulty === "Medium"
-                          ? "text-yellow-500"
-                          : "text-red-500"
-                    }
-                  `}
+                        ? "text-yellow-500"
+                        : "text-red-500"
+                    }`}
                   >
                     {problem.difficulty}
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Platform</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Platform
+                  </h4>
                   <p className="capitalize">{problem.platform || "Unknown"}</p>
                 </div>
 
                 {problem.success_rate && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Success Rate</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Success Rate
+                    </h4>
                     <p>{problem.success_rate}%</p>
                   </div>
                 )}
 
                 {problem.companies && problem.companies.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Companies</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Companies
+                    </h4>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {problem.companies.map((company) => (
-                        <Badge key={company} variant="secondary" className="bg-muted">
+                        <Badge
+                          key={company}
+                          variant="secondary"
+                          className="bg-muted"
+                        >
                           {company}
                         </Badge>
                       ))}
@@ -285,7 +388,9 @@ export default function ProblemPage() {
 
                 {problem.tags && problem.tags.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Tags</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Tags
+                    </h4>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {problem.tags.map((tag) => (
                         <Badge key={tag} variant="outline">
@@ -297,13 +402,16 @@ export default function ProblemPage() {
                 )}
 
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Original Link</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Original Link
+                  </h4>
                   <Link
                     href={problem.url}
                     target="_blank"
                     className="text-primary hover:underline flex items-center gap-1"
                   >
-                    {problem.url.split("//")[1]?.split("/")[0] || "External Link"}
+                    {problem.url.split("//")[1]?.split("/")[0] ||
+                      "External Link"}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                 </div>
@@ -313,5 +421,5 @@ export default function ProblemPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

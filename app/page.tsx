@@ -1,7 +1,8 @@
-"use client"
+// app/page.tsx  (or wherever your Home component lives)
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Search,
   Filter,
@@ -9,118 +10,172 @@ import {
   CheckCircle2,
   ExternalLink,
   Trash2,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { motion } from "framer-motion"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
+
+// Import your Supabase client (anon key) to read the session
+import { supabase } from "@/lib/supabaseClient";
 
 interface Topic {
-  id: string
-  name: string
-  slug: string
-  count: number
+  id: string;
+  name: string;
+  slug: string;
+  count: number;
 }
 
 interface Problem {
-  id: string
-  title: string
-  number: string
-  difficulty: string
-  completed: boolean
-  url: string
-  platform: string
-  tags?: string[]
+  id: string;
+  title: string;
+  number: string;
+  difficulty: string;
+  completed: boolean;
+  url: string;
+  platform: string;
+  tags?: string[];
 }
 
 export default function Home() {
-  const [topics, setTopics] = useState<Topic[]>([])
-  const [problems, setProblems] = useState<Problem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 1) Store the JWT once we fetch the Supabase session
+  const [token, setToken] = useState<string>("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-
-        const topicsRes = await fetch("/api/topics")
-        const topicsData = await topicsRes.json()
-
-        const problemsRes = await fetch("/api/problems?limit=20")
-        const problemsData = await problemsRes.json()
-
-        setTopics(topicsData.topics || [])
-        setProblems(problemsData.problems || [])
-      } catch (error) {
-        console.error("Error fetching data:", error)
-      } finally {
-        setLoading(false)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setToken(data.session.access_token);
       }
+    });
+  }, []);
+
+  // 2) Fetch topics & problems only after we have a token
+  useEffect(() => {
+    if (!token) {
+      // Wait until token is set
+      return;
     }
 
-    fetchData()
-  }, [])
+    const fetchData = async () => {
+      try {
+        setLoading(true);
 
+        // Fetch topics with Authorization header
+        const topicsRes = await fetch("/api/topics", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!topicsRes.ok) {
+          throw new Error(`Failed to fetch topics: ${topicsRes.status}`);
+        }
+        const topicsData = await topicsRes.json();
+
+        // Fetch problems (limit 20) with Authorization header
+        const problemsRes = await fetch("/api/problems?limit=20", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!problemsRes.ok) {
+          throw new Error(`Failed to fetch problems: ${problemsRes.status}`);
+        }
+        const problemsData = await problemsRes.json();
+
+        setTopics(topicsData.topics || []);
+        setProblems(problemsData.problems || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [token]);
+
+  // Toggle completion status for a problem
   const toggleCompletion = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId)
-    if (!target) return
+    const target = problems.find((p) => p.id === problemId);
+    if (!target || !token) return;
+
+    // Optimistically update UI
+    setProblems((prev) =>
+      prev.map((p) =>
+        p.id === problemId ? { ...p, completed: !p.completed } : p
+      )
+    );
 
     try {
-      setProblems((prev) =>
-        prev.map((p) =>
-          p.id === problemId ? { ...p, completed: !p.completed } : p
-        )
-      )
-
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ completed: !target.completed }),
-      })
+      });
 
       if (!res.ok) {
+        // Revert if API call failed
         setProblems((prev) =>
           prev.map((p) =>
             p.id === problemId ? { ...p, completed: target.completed } : p
           )
-        )
+        );
       }
     } catch (error) {
-      console.error("Error toggling completion:", error)
+      console.error("Error toggling completion:", error);
+      // Revert on error
       setProblems((prev) =>
         prev.map((p) =>
           p.id === problemId ? { ...p, completed: target.completed } : p
         )
-      )
+      );
     }
-  }
+  };
 
+  // Delete a problem
   const deleteProblem = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId)
-    if (!target) return
+    const target = problems.find((p) => p.id === problemId);
+    if (!target || !token) return;
 
-    setProblems((prev) => prev.filter((p) => p.id !== problemId))
+    // Optimistically remove from UI
+    setProblems((prev) => prev.filter((p) => p.id !== problemId));
 
     try {
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "DELETE",
-      })
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!res.ok) {
-        setProblems((prev) => [...prev, target])
-        console.error(`Failed to delete problem: ${res.status}`)
+        // If deletion failed, re-add the problem to state
+        setProblems((prev) => [...prev, target]);
+        console.error(`Failed to delete problem: ${res.status}`);
       }
     } catch (error) {
-      console.error("Error deleting problem:", error)
-      setProblems((prev) => [...prev, target])
+      console.error("Error deleting problem:", error);
+      // Revert on error
+      setProblems((prev) => [...prev, target]);
     }
-  }
+  };
 
   const filteredProblems = problems.filter(
     (problem) =>
       problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       problem.number.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -270,5 +325,5 @@ export default function Home() {
         )}
       </div>
     </div>
-  )
+  );
 }
