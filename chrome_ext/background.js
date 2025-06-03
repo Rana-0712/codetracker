@@ -1,8 +1,3 @@
-// background.js
-// -------------
-// Classic MV3 service worker (no "type": "module" in manifest).
-// We debug-step: import the UMD build, confirm the global, then seed.
-
 console.log("background.js: starting up");
 
 // 1) Load the UMD build of Supabase
@@ -87,6 +82,9 @@ chrome.runtime.onInstalled.addListener(() => {
     }
   });
 
+  // Clear session on install/update
+  chrome.storage.local.remove("supabase_session");
+
   // Reminder log: the developer must run the seeding command manually once
   console.log(
     "background.js: If you have NOT seeded your keys yet, open the SW console and run:\n" +
@@ -105,7 +103,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// 7) Example sync function (for when you want to call it later)
+// 7) Session validation
+chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
+  if (supabase_session?.access_token) {
+    try {
+      const response = await fetch("https://codetracker-psi.vercel.app/api/validate-session", {
+        headers: {
+          Authorization: `Bearer ${supabase_session.access_token}`
+        }
+      });
+      if (!response.ok) {
+        chrome.storage.local.remove("supabase_session");
+      }
+    } catch (e) {
+      console.error("Session validation failed:", e);
+      chrome.storage.local.remove("supabase_session");
+    }
+  }
+});
+
+// 8) Example sync function
 async function syncWithWebApp() {
   if (!supabaseExt) {
     await initSupabaseClient();
@@ -144,4 +161,3 @@ async function syncWithWebApp() {
     console.error("background.js: syncWithWebApp error:", error);
   }
 }
-

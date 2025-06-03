@@ -47,7 +47,9 @@
         "https://www.codechef.com/practice/*",
         "https://codeforces.com/problemset/problem/*"
       ],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ]
 }

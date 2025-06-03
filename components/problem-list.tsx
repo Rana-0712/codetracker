@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronDown, ChevronRight, CheckCircle2, Circle, ExternalLink } from "lucide-react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { ChevronDown, ChevronRight, CheckCircle2, Circle, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/AuthContext"
+import { supabase } from "@/lib/supabaseClient"
 
 interface Problem {
   id: string
@@ -18,67 +20,57 @@ interface Problem {
 
 interface ProblemListProps {
   title: string
-  problems: Problem[]
   expanded?: boolean
 }
 
 function getPlatformIcon(platform?: string) {
   switch (platform?.toLowerCase()) {
-    case "leetcode":
-      return "LC"
-    case "geeksforgeeks":
-      return "GFG"
-    case "interviewbit":
-      return "IB"
-    case "codechef":
-      return "CC"
-    case "codeforces":
-      return "CF"
-    default:
-      return "?"
+    case "leetcode": return "LC"
+    case "geeksforgeeks": return "GFG"
+    case "interviewbit": return "IB"
+    case "codechef": return "CC"
+    case "codeforces": return "CF"
+    default: return "?"
   }
 }
 
 function getPlatformColor(platform?: string) {
   switch (platform?.toLowerCase()) {
-    case "leetcode":
-      return "bg-orange-500 text-white"
-    case "geeksforgeeks":
-      return "bg-green-500 text-white"
-    case "interviewbit":
-      return "bg-blue-500 text-white"
-    case "codechef":
-      return "bg-purple-500 text-white"
-    case "codeforces":
-      return "bg-red-500 text-white"
-    default:
-      return "bg-gray-500 text-white"
+    case "leetcode": return "bg-orange-500 text-white"
+    case "geeksforgeeks": return "bg-green-500 text-white"
+    case "interviewbit": return "bg-blue-500 text-white"
+    case "codechef": return "bg-purple-500 text-white"
+    case "codeforces": return "bg-red-500 text-white"
+    default: return "bg-gray-500 text-white"
   }
 }
 
-async function toggleProblemCompletion(problemId: string, completed: boolean) {
-  try {
-    const response = await fetch(`/api/problems/${problemId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ completed: !completed }),
-    })
-
-    if (response.ok) {
-      window.location.reload()
-    }
-  } catch (error) {
-    console.error("Error updating problem:", error)
-  }
-}
-
-export default function ProblemList({ title, problems, expanded = false }: ProblemListProps) {
+export default function ProblemList({ title, expanded = false }: ProblemListProps) {
   const [isExpanded, setIsExpanded] = useState(expanded)
+  const [problems, setProblems] = useState<Problem[]>([])
+  const { user } = useAuth()
+
+  useEffect(() => {
+    const fetchProblems = async () => {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+
+      const res = await fetch("/api/problems", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setProblems(data.problems || [])
+    }
+
+    if (user) fetchProblems()
+  }, [user])
+
+  if (!user) {
+    return <div className="p-6 text-muted-foreground text-center">Please sign in to view your saved problems.</div>
+  }
 
   if (problems.length === 0) {
-    return null
+    return <div className="p-6 text-muted-foreground text-center">No problems saved yet.</div>
   }
 
   return (
@@ -87,11 +79,7 @@ export default function ProblemList({ title, problems, expanded = false }: Probl
         className="w-full flex items-center gap-2 p-4 bg-muted/50 hover:bg-muted/70 text-left"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {isExpanded ? (
-          <ChevronDown className="h-5 w-5 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-        )}
+        {isExpanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
         <span className="font-medium">{title}</span>
         <span className="text-sm text-muted-foreground">({problems.length})</span>
       </button>
@@ -111,7 +99,14 @@ export default function ProblemList({ title, problems, expanded = false }: Probl
             <div key={problem.id} className="grid grid-cols-12 px-4 py-3 items-center hover:bg-muted/20">
               <div className="col-span-1">
                 <button
-                  onClick={() => toggleProblemCompletion(problem.id, problem.completed)}
+                  onClick={async () => {
+                    await fetch(`/api/problems/${problem.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ completed: !problem.completed }),
+                    })
+                    setProblems((prev) => prev.map(p => p.id === problem.id ? { ...p, completed: !p.completed } : p))
+                  }}
                   className="hover:scale-110 transition-transform"
                 >
                   {problem.completed ? (
@@ -133,7 +128,7 @@ export default function ProblemList({ title, problems, expanded = false }: Probl
                     "font-normal",
                     problem.difficulty === "Easy" && "bg-green-500/10 text-green-500 border-green-500/20",
                     problem.difficulty === "Medium" && "bg-orange-500/10 text-orange-500 border-orange-500/20",
-                    problem.difficulty === "Hard" && "bg-red-500/10 text-red-500 border-red-500/20",
+                    problem.difficulty === "Hard" && "bg-red-500/10 text-red-500 border-red-500/20"
                   )}
                 >
                   {problem.difficulty}
@@ -147,20 +142,13 @@ export default function ProblemList({ title, problems, expanded = false }: Probl
                 </Link>
               </div>
               <div className="col-span-1">
-                <div
-                  className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded text-xs font-bold",
-                    getPlatformColor(problem.platform),
-                  )}
-                >
+                <div className={cn("flex items-center justify-center w-8 h-8 rounded text-xs font-bold", getPlatformColor(problem.platform))}>
                   {getPlatformIcon(problem.platform)}
                 </div>
               </div>
               <div className="col-span-1">
                 <Link href={`/problem/${problem.id}`}>
-                  <Button variant="ghost" size="sm">
-                    View
-                  </Button>
+                  <Button variant="ghost" size="sm">View</Button>
                 </Link>
               </div>
             </div>

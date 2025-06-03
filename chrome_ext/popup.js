@@ -1,8 +1,7 @@
 // popup.js
 // ========
-// This script handles both authentication (Supabase Auth) and the existing
-// problem-detection/save logic. It runs in ES module mode (type="module").
-// We assume popup.html already loaded vendor/supabase.js, so `supabase` is global.
+// Handles authentication (Supabase Auth) and problem-detection/save logic.
+// Runs as an ES module; popup.html already loaded vendor/supabase.js, so `supabase` is global.
 
 const { createClient } = supabase; // from UMD build
 
@@ -28,7 +27,6 @@ async function getEnv() {
 
 // ─── 2) INITIALIZE SUPABASE CLIENT FOR EXTENSION ───────────────────────────────────────
 let supabaseExt = null;
-
 async function initSupabaseClient() {
   const { url, anonKey } = await getEnv();
   if (!url || !anonKey) {
@@ -41,72 +39,93 @@ async function initSupabaseClient() {
 }
 
 // ─── 3) DOM ELEMENT REFERENCES ────────────────────────────────────────────────────────
-const signinFormEl = document.getElementById("signin-form");
-const signedInViewEl = document.getElementById("signed-in-view");
-const userEmailTextEl = document.getElementById("user-email-text");
-const loginButton = document.getElementById("login-button");
-const logoutButton = document.getElementById("logout-button");
-const loginErrorEl = document.getElementById("login-error");
+const loadingViewEl      = document.getElementById("loading-view");
+const authContainerEl    = document.getElementById("auth-container");
+const signinFormEl       = document.getElementById("signin-form");
+const signedInViewEl     = document.getElementById("signed-in-view");
+const userEmailTextEl    = document.getElementById("user-email-text");
+const loginButton        = document.getElementById("login-button");
+const logoutButton       = document.getElementById("logout-button");
+const loginErrorEl       = document.getElementById("login-error");
 
-const notProblemPageEl = document.getElementById("not-problem-page");
-const problemDetectedEl = document.getElementById("problem-detected");
-const alreadySavedEl = document.getElementById("already-saved");
-const statusIndicator = document.getElementById("status-indicator");
+const notProblemPageEl   = document.getElementById("not-problem-page");
+const problemDetectedEl  = document.getElementById("problem-detected");
+const alreadySavedEl     = document.getElementById("already-saved");
+const statusIndicator    = document.getElementById("status-indicator");
 
-const saveButton = document.getElementById("save-button");
-const viewButton = document.getElementById("view-button");
-const removeButton = document.getElementById("remove-button");
+const saveButton         = document.getElementById("save-button");
+const viewButton         = document.getElementById("view-button");
+const removeButton       = document.getElementById("remove-button");
 
-const openWebappLink = document.getElementById("open-webapp-link");
+const openWebappLink     = document.getElementById("open-webapp-link");
 
-const problemTitleEl = document.getElementById("problem-title");
-const difficultyEl = document.getElementById("problem-difficulty");
-const topicsContainer = document.getElementById("problem-topics");
-const topicSelect = document.getElementById("topic-select");
-const notesTextarea = document.getElementById("notes");
-const savedTitleEl = document.getElementById("saved-title");
-const savedTopicEl = document.getElementById("saved-topic");
+const problemTitleEl     = document.getElementById("problem-title");
+const difficultyEl       = document.getElementById("problem-difficulty");
+const topicsContainer    = document.getElementById("problem-topics");
+const topicSelect        = document.getElementById("topic-select");
+const notesTextarea      = document.getElementById("notes");
+const savedTitleEl       = document.getElementById("saved-title");
+const savedTopicEl       = document.getElementById("saved-topic");
 
-// State
+// ─── 4) STATE ─────────────────────────────────────────────────────────────────────────
 let currentProblemData = null;
-let currentTabId = null;
+let currentTabId       = null;
 
-// ─── 4) SHOW/HIDE HELPER FUNCTIONS ────────────────────────────────────────────────────
+// ─── 5) SHOW/HIDE FUNCTIONS ────────────────────────────────────────────────────────────
+function showLoading() {
+  loadingViewEl.classList.remove("hidden");
+  authContainerEl.classList.add("hidden");
+  notProblemPageEl.classList.add("hidden");
+  problemDetectedEl.classList.add("hidden");
+  alreadySavedEl.classList.add("hidden");
+}
+
+// Once we know “not signed in,” call this:
 function showSignInForm() {
+  loadingViewEl.classList.add("hidden");
+  authContainerEl.classList.remove("hidden");
   signinFormEl.classList.remove("hidden");
   signedInViewEl.classList.add("hidden");
-}
 
-function showSignedInView(email) {
-  signinFormEl.classList.add("hidden");
-  signedInViewEl.classList.remove("hidden");
-  userEmailTextEl.textContent = `Signed in as ${email}`;
-}
-
-function showNotProblemPage() {
-  notProblemPageEl.classList.remove("hidden");
+  // Hide everything else until after sign-in + problem check
+  notProblemPageEl.classList.add("hidden");
   problemDetectedEl.classList.add("hidden");
   alreadySavedEl.classList.add("hidden");
   statusIndicator.classList.remove("bg-green-500", "bg-blue-500");
   statusIndicator.classList.add("bg-gray-300");
 }
 
+// Once we know “signed in,” but haven’t yet checked “problem page,” keep auth UI up:
+function showSignedInSkeleton(email) {
+  loadingViewEl.classList.add("hidden");
+  authContainerEl.classList.remove("hidden");
+  signinFormEl.classList.add("hidden");
+  signedInViewEl.classList.remove("hidden");
+  userEmailTextEl.textContent = `Signed in as ${email}`;
+
+  // Don’t show a problem/no-problem message until after problem detection
+  notProblemPageEl.classList.add("hidden");
+  problemDetectedEl.classList.add("hidden");
+  alreadySavedEl.classList.add("hidden");
+  statusIndicator.classList.remove("bg-green-500", "bg-blue-500");
+  statusIndicator.classList.add("bg-gray-300");
+}
+
+// Called when we know “signed in” AND “problem data” is ready:
 function showProblemDetected(problem) {
+  loadingViewEl.classList.add("hidden");
+  authContainerEl.classList.remove("hidden");
+  signinFormEl.classList.add("hidden");
+  signedInViewEl.classList.remove("hidden");
+
   notProblemPageEl.classList.add("hidden");
   problemDetectedEl.classList.remove("hidden");
   alreadySavedEl.classList.add("hidden");
   statusIndicator.classList.remove("bg-gray-300", "bg-blue-500");
   statusIndicator.classList.add("bg-green-500");
 
-  // Reset save button
-  saveButton.textContent = "Save Problem";
-  saveButton.disabled = false;
-  saveButton.classList.remove("bg-green-600");
-  saveButton.classList.add("bg-blue-600");
-
-  // Populate fields
+  // Populate problem fields:
   problemTitleEl.textContent = problem.title || "Unknown Title";
-
   difficultyEl.textContent = problem.difficulty || "Medium";
   if (problem.difficulty === "Easy") {
     difficultyEl.className = "text-sm text-green-600 font-medium";
@@ -132,7 +151,7 @@ function showProblemDetected(problem) {
     topicsContainer.appendChild(noTopicsSpan);
   }
 
-  // Pre-select a topic
+  // Pre-select topic in <select>
   topicSelect.value = "dynamic-programming";
   if (problem.topics && problem.topics.length > 0) {
     const lowerTopics = problem.topics.map((t) => t.toLowerCase());
@@ -158,9 +177,20 @@ function showProblemDetected(problem) {
       topicSelect.value = "backtracking";
     }
   }
+
+  // Reset save button
+  saveButton.textContent = "Save Problem";
+  saveButton.disabled = false;
+  saveButton.classList.remove("bg-green-600");
+  saveButton.classList.add("bg-blue-600");
 }
 
 function showAlreadySaved(problem) {
+  loadingViewEl.classList.add("hidden");
+  authContainerEl.classList.remove("hidden");
+  signinFormEl.classList.add("hidden");
+  signedInViewEl.classList.remove("hidden");
+
   notProblemPageEl.classList.add("hidden");
   problemDetectedEl.classList.add("hidden");
   alreadySavedEl.classList.remove("hidden");
@@ -168,7 +198,6 @@ function showAlreadySaved(problem) {
   statusIndicator.classList.add("bg-blue-500");
 
   savedTitleEl.textContent = problem.title || "Unknown Title";
-
   let topicDisplay = problem.topic || "dynamic-programming";
   topicDisplay = topicDisplay
     .split("-")
@@ -177,24 +206,44 @@ function showAlreadySaved(problem) {
   savedTopicEl.textContent = topicDisplay;
 }
 
-// ─── 5) ON POPUP LOAD → INITIALIZE CLIENT & CHECK SESSION ──────────────────────────────
+// Show “not a problem page” after we know user is signed in but content script returned null/undefined:
+function showNotProblemPage() {
+  loadingViewEl.classList.add("hidden");
+  authContainerEl.classList.remove("hidden");
+  signinFormEl.classList.add("hidden");
+  signedInViewEl.classList.remove("hidden");
+
+  notProblemPageEl.classList.remove("hidden");
+  problemDetectedEl.classList.add("hidden");
+  alreadySavedEl.classList.add("hidden");
+  statusIndicator.classList.remove("bg-green-500", "bg-blue-500");
+  statusIndicator.classList.add("bg-gray-300");
+}
+
+// ─── 6) ON POPUP LOAD: INITIALIZE & DRIVE FLOW ─────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
+  // 1) Show Loading
+  showLoading();
+
+  // 2) Init Supabase
   await initSupabaseClient();
   if (!supabaseExt) {
     log("ERROR: could not initialize Supabase client in popup");
+    // Still proceed to “not signed in” after a short delay:
+    setTimeout(() => showSignInForm(), 500);
     return;
   }
 
-  // Check for existing session (from previous sign-in)
+  // 3) Check existing Supabase session in chrome.storage.local
   chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
     if (supabase_session && supabase_session.access_token) {
-      // Rehydrate the Supabase client with that session
+      // Rehydrate Supabase client with that session
       await supabaseExt.auth.setSession({
         access_token: supabase_session.access_token,
         refresh_token: supabase_session.refresh_token,
       });
 
-      // ⚠️ Explicitly fetch the user object (v2 does not populate session.user reliably)
+      // Explicitly fetch the user object
       const {
         data: { user },
         error: getUserError,
@@ -206,19 +255,73 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      showSignedInView(user.email);
-      bindAfterSignIn();
+      // 4a) We know: user is signed in → show skeleton then check problem
+      showSignedInSkeleton(user.email);
+      await checkProblemAndRender();
     } else {
+      // 4b) Not signed in → still need to run problem check after sign-in, but for now:
       showSignInForm();
     }
   });
 });
 
-// ─── 6) HANDLE SIGN-IN ────────────────────────────────────────────────────────────────
+// After sign-in succeeds, we need to re-check problem, so bind here:
+async function bindAfterSignIn() {
+  // 1) Update “Open Web App” link to include JWT for SSO
+  const {
+    data: { session },
+  } = await supabaseExt.auth.getSession();
+  const token = session.access_token;
+  openWebappLink.href = `https://codetracker-psi.vercel.app/auth/extension-login?token=${token}`;
+
+  // 2) Now that we’re sure user is signed in, run problem detection
+  await checkProblemAndRender();
+}
+
+// A shared function to query the active tab for problem data and decide which UI to show:
+async function checkProblemAndRender() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      currentTabId = tabs[0].id;
+      chrome.tabs.sendMessage(
+        currentTabId,
+        { action: "extractProblemData" },
+        (response) => {
+          // If content script error / no data, show “not a problem page”
+          if (chrome.runtime.lastError || !response) {
+            showNotProblemPage();
+            resolve();
+            return;
+          }
+
+          currentProblemData = response;
+          // Check if already saved locally
+          chrome.storage.local.get("savedProblems", (data) => {
+            const savedProblems = data.savedProblems || [];
+            const already = savedProblems.some(
+              (p) => p.url === currentProblemData.url
+            );
+            if (already) {
+              const savedProblem = savedProblems.find(
+                (p) => p.url === currentProblemData.url
+              );
+              showAlreadySaved(savedProblem);
+            } else {
+              showProblemDetected(currentProblemData);
+            }
+            resolve();
+          });
+        }
+      );
+    });
+  });
+}
+
+// ─── 7) HANDLE SIGN-IN ────────────────────────────────────────────────────────────────
 loginButton.addEventListener("click", async () => {
-  const emailInput = document.getElementById("email");
+  const emailInput    = document.getElementById("email");
   const passwordInput = document.getElementById("password");
-  const email = emailInput.value.trim();
+  const email    = emailInput.value.trim();
   const password = passwordInput.value;
 
   loginErrorEl.classList.add("hidden");
@@ -248,17 +351,20 @@ loginButton.addEventListener("click", async () => {
       },
     },
     () => {
-      showSignedInView(session.user.email);
+      // 1) Show “signed in” skeleton
+      showSignedInSkeleton(session.user.email);
+      // 2) Then kick off problem detection
       bindAfterSignIn();
     }
   );
 });
 
-// ─── 7) HANDLE SIGN-OUT ───────────────────────────────────────────────────────────────
+// ─── 8) HANDLE SIGN-OUT ───────────────────────────────────────────────────────────────
 logoutButton.addEventListener("click", async () => {
   await supabaseExt.auth.signOut();
   chrome.storage.local.remove("supabase_session", () => {
     showSignInForm();
+    // Reset everything
     notProblemPageEl.classList.add("hidden");
     problemDetectedEl.classList.add("hidden");
     alreadySavedEl.classList.add("hidden");
@@ -267,55 +373,13 @@ logoutButton.addEventListener("click", async () => {
   });
 });
 
-// ─── 8) AFTER SIGN-IN → BIND PROBLEM DETECTION FLOW ────────────────────────────────────
-async function bindAfterSignIn() {
-  // 1) Update “Open Web App” link to include JWT for SSO
-  const {
-    data: { session },
-  } = await supabaseExt.auth.getSession();
-  const token = session.access_token;
-  openWebappLink.href = `https://codetracker-psi.vercel.app/auth/extension-login?token=${token}`;
-
-  // 2) Query active tab for problem data
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    currentTabId = tabs[0].id;
-    chrome.tabs.sendMessage(
-      currentTabId,
-      { action: "extractProblemData" },
-      (response) => {
-        if (chrome.runtime.lastError || !response) {
-          showNotProblemPage();
-          return;
-        }
-        currentProblemData = response;
-
-        // Check if already saved locally
-        chrome.storage.local.get("savedProblems", (data) => {
-          const savedProblems = data.savedProblems || [];
-          const alreadySaved = savedProblems.some(
-            (p) => p.url === currentProblemData.url
-          );
-          if (alreadySaved) {
-            const savedProblem = savedProblems.find(
-              (p) => p.url === currentProblemData.url
-            );
-            showAlreadySaved(savedProblem);
-          } else {
-            showProblemDetected(currentProblemData);
-          }
-        });
-      }
-    );
-  });
-}
-
-// ─── 9) SAVE PROBLEM: Save Locally + To Web App ───────────────────────────────────────
+// ─── 9) SAVE PROBLEM ─────────────────────────────────────────────────────────────────
 saveButton.addEventListener("click", async () => {
   if (!currentProblemData) return;
   saveButton.disabled = true;
   saveButton.textContent = "Saving…";
 
-  // Explicitly fetch the user object (v2 does not populate session.user reliably)
+  // Ensure we have the latest user object
   const {
     data: { user },
     error: getUserError,
@@ -350,12 +414,10 @@ saveButton.addEventListener("click", async () => {
     savedProblems.push(problemToSave);
     chrome.storage.local.set({ savedProblems }, async () => {
       log("Saved locally in extension");
-
       console.log("Problem to save:", problemToSave);
 
-      // 2) Save to your web app via API, with Authorization header
+      // 2) Save to web app via API
       try {
-        // Fetch the session (for the access_token header)
         const {
           data: { session },
           error: getSessionError,
@@ -432,6 +494,7 @@ removeButton.addEventListener("click", () => {
     );
     chrome.storage.local.set({ savedProblems }, () => {
       log("Removed from local storage");
+      // After removal, treat as “problem detected” again
       showProblemDetected(currentProblemData);
     });
   });
