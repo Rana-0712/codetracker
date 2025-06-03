@@ -23,6 +23,12 @@ function addCorsHeaders(response: NextResponse) {
   return response;
 }
 
+// ─── Helper: Safely extract a message from unknown error ─────────────────────────────
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 // ─── OPTIONS (CORS preflight) ─────────────────────────────────────────────────────────
 export async function OPTIONS() {
   const response = new NextResponse(null, { status: 200 });
@@ -33,9 +39,8 @@ export async function OPTIONS() {
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const limit = url.searchParams.get("limit")
-      ? Number.parseInt(url.searchParams.get("limit")!)
-      : undefined;
+    const limitParam = url.searchParams.get("limit");
+    const limit = limitParam ? Number.parseInt(limitParam) : undefined;
 
     let query = supabaseAdmin
       .from("problems")
@@ -48,7 +53,7 @@ export async function GET(request: Request) {
       `)
       .order("created_at", { ascending: false });
 
-    if (limit) {
+    if (limit !== undefined) {
       query = query.limit(limit);
     }
 
@@ -76,8 +81,9 @@ export async function GET(request: Request) {
     return addCorsHeaders(resp);
   } catch (err) {
     console.error("Error:", err);
+    const message = extractErrorMessage(err);
     const resp = NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error: " + message },
       { status: 500 }
     );
     return addCorsHeaders(resp);
@@ -180,8 +186,8 @@ export async function POST(request: Request) {
       .eq("url", problem.url)
       .single();
 
+    // “PGRST116” means “no rows found,” which is fine here
     if (existingError && existingError.code !== "PGRST116") {
-      // PGRST116 means “no rows found,” which is fine here
       console.error("Error checking existing problem:", existingError);
       const resp = NextResponse.json(
         { success: false, error: existingError.message },
@@ -223,7 +229,7 @@ export async function POST(request: Request) {
         tags: problem.topics || [],
         completed: false,
         number: number,
-        user_id: user.id, // ← Here we guarantee user_id is not null
+        user_id: user.id, // ← guaranteed to be non-null and valid
       })
       .select()
       .single();
@@ -248,10 +254,11 @@ export async function POST(request: Request) {
       { status: 200 }
     );
     return addCorsHeaders(resp);
-  } catch (error) {
-    console.error("Error saving problem:", error);
+  } catch (err: unknown) {
+    const message = extractErrorMessage(err);
+    console.error("Error saving problem:", message);
     const resp = NextResponse.json(
-      { success: false, error: "Failed to save problem: " + (error as any).message },
+      { success: false, error: "Failed to save problem: " + message },
       { status: 500 }
     );
     return addCorsHeaders(resp);
