@@ -455,6 +455,7 @@ function extractCodeforcesData(data) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "extractProblemData") {
     const data = extractProblemData();
+    console.log(data);
     sendResponse(data);
   }
   return true;

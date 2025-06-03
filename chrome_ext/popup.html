@@ -1,25 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CodeTracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CodeTracker Popup</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+    rel="stylesheet"
+  />
   <style>
     body {
       width: 350px;
-      min-height: 300px;
+      min-height: 400px;
       font-family: system-ui, -apple-system, sans-serif;
     }
   </style>
 </head>
 <body class="bg-gray-50">
   <div class="p-4">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold">CodeTracker</h1>
-      <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-300"></div>
+    <!-- ─── AUTHENTICATION UI ───────────────────────────────────────────────────────── -->
+    <div id="auth-container">
+      <!-- If not signed in, show sign-in form -->
+      <div id="signin-form" class="space-y-3">
+        <div class="flex items-center justify-between mb-4">
+          <h1 class="text-xl font-bold">CodeTracker</h1>
+          <!-- Added status-indicator so JS can toggle it -->
+          <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-300"></div>
+        </div>
+        <p class="text-gray-700 text-sm">
+          Please sign in to save problems.
+        </p>
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm"
+            placeholder="you@example.com"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            id="password"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm"
+            placeholder="••••••••"
+          />
+        </div>
+        <button
+          id="login-button"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
+        >
+          Sign In
+        </button>
+        <p id="login-error" class="text-red-600 text-sm hidden"></p>
+      </div>
+
+      <!-- If signed in, show “Signed in as …” and a Sign Out button -->
+      <div id="signed-in-view" class="hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <h1 class="text-xl font-bold">CodeTracker</h1>
+          <button
+            id="logout-button"
+            class="text-sm text-red-600 hover:underline"
+          >
+            Sign Out
+          </button>
+        </div>
+        <p class="text-sm text-gray-700" id="user-email-text">
+          <!-- “Signed in as you@example.com” -->
+        </p>
+      </div>
     </div>
-    
+
+    <hr class="my-4" />
+
+    <!-- ─── PROBLEM DETECTION / SAVE UI ───────────────────────────────────────────────── -->
     <div id="not-problem-page" class="hidden">
       <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
         <p class="text-yellow-800 text-sm">
@@ -35,31 +96,35 @@
         <li>Codeforces</li>
       </ul>
     </div>
-    
+
     <div id="problem-detected" class="hidden">
       <div class="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
         <p class="text-green-800 text-sm">
           Problem detected! You can save this problem.
         </p>
       </div>
-      
+
       <div class="mb-4">
         <h2 class="font-medium mb-1">Problem Title</h2>
-        <p id="problem-title" class="text-sm bg-white border rounded-md p-2">-</p>
+        <p id="problem-title" class="text-sm bg-white border rounded-md p-2">
+          -
+        </p>
       </div>
-      
+
       <div class="mb-4">
         <h2 class="font-medium mb-1">Difficulty</h2>
         <p id="problem-difficulty" class="text-sm">-</p>
       </div>
-      
+
       <div class="mb-4">
         <h2 class="font-medium mb-1">Topics</h2>
         <div id="problem-topics" class="flex flex-wrap gap-1">
-          <span class="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Loading...</span>
+          <span class="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">
+            Loading...
+          </span>
         </div>
       </div>
-      
+
       <div class="mb-4">
         <label for="topic-select" class="block font-medium mb-1">Save to Topic</label>
         <select id="topic-select" class="w-full p-2 border rounded-md text-sm">
@@ -75,51 +140,74 @@
           <option value="backtracking">Backtracking</option>
         </select>
       </div>
-      
+
       <div class="mb-4">
         <label for="notes" class="block font-medium mb-1">Notes (optional)</label>
-        <textarea id="notes" class="w-full p-2 border rounded-md text-sm h-20" placeholder="Add your notes here..."></textarea>
+        <textarea
+          id="notes"
+          class="w-full p-2 border rounded-md text-sm h-20"
+          placeholder="Add your notes here..."
+        ></textarea>
       </div>
-      
-      <button id="save-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+
+      <button
+        id="save-button"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
+      >
         Save Problem
       </button>
     </div>
-    
+
     <div id="already-saved" class="hidden">
       <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
         <p class="text-blue-800 text-sm">
           You've already saved this problem!
         </p>
       </div>
-      
+
       <div class="mb-4">
         <h2 class="font-medium mb-1">Problem Title</h2>
-        <p id="saved-title" class="text-sm bg-white border rounded-md p-2">-</p>
+        <p id="saved-title" class="text-sm bg-white border rounded-md p-2">
+          -
+        </p>
       </div>
-      
+
       <div class="mb-4">
         <h2 class="font-medium mb-1">Saved in Topic</h2>
         <p id="saved-topic" class="text-sm">-</p>
       </div>
-      
+
       <div class="flex gap-2">
-        <button id="view-button" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-md">
+        <button
+          id="view-button"
+          class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-md"
+        >
           View in App
         </button>
-        <button id="remove-button" class="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-md">
+        <button
+          id="remove-button"
+          class="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-md"
+        >
           Remove
         </button>
       </div>
     </div>
-    
+
     <div class="mt-4 pt-4 border-t border-gray-200">
-      <a href="https://codetracker-psi.vercel.app/" target="_blank" class="text-sm text-blue-600 hover:underline">
+      <a
+        href="#"
+        id="open-webapp-link"
+        class="text-sm text-blue-600 hover:underline"
+        target="_blank"
+      >
         Open CodeTracker Web App
       </a>
     </div>
   </div>
-  
-  <script src="popup.js"></script>
+
+  <!-- 1) Load the local UMD build of Supabase (not a CDN) -->
+  <script src="vendor/supabase.js"></script>
+  <!-- 2) Load our popup.js, which expects `supabase` global to be present -->
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

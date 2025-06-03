@@ -1,47 +1,147 @@
-// This script runs in the background to handle events
+// background.js
+// -------------
+// Classic MV3 service worker (no "type": "module" in manifest).
+// We debug-step: import the UMD build, confirm the global, then seed.
 
-// Initialize when the extension is installed
+console.log("background.js: starting up");
+
+// 1) Load the UMD build of Supabase
+try {
+  importScripts("vendor/supabase.js");
+  console.log("background.js: importScripts succeeded");
+} catch (e) {
+  console.error("background.js: importScripts failed:", e);
+}
+
+// 2) Check that the UMD global 'supabase' exists
+if (typeof supabase === "undefined") {
+  console.error("background.js: ERROR—global 'supabase' is undefined after importScripts");
+} else {
+  console.log("background.js: global 'supabase' is present");
+}
+
+// 3) Grab createClient from that global (if available)
+let createClient = null;
+try {
+  createClient = supabase.createClient;
+  if (typeof createClient !== "function") {
+    console.error("background.js: ERROR—supabase.createClient is not a function");
+  } else {
+    console.log("background.js: supabase.createClient() is available");
+  }
+} catch (e) {
+  console.error("background.js: ERROR accessing supabase.createClient:", e);
+}
+
+let supabaseExt = null;
+
+// 4) Function to initialize the Supabase client from stored keys
+function initSupabaseClient() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+      ({ SUPABASE_URL, SUPABASE_ANON_KEY }) => {
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+          console.error("background.js: No Supabase keys found in storage");
+          console.log(
+            "background.js: SUPABASE_URL =", SUPABASE_URL,
+            "SUPABASE_ANON_KEY =", SUPABASE_ANON_KEY
+          );
+          resolve(null);
+          return;
+        }
+        console.log("background.js: Found Supabase keys:", {
+          SUPABASE_URL,
+          SUPABASE_ANON_KEY: SUPABASE_ANON_KEY.slice(0, 8) + "…"
+        });
+        try {
+          supabaseExt = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          console.log("background.js: Successfully created supabaseExt client");
+          resolve(supabaseExt);
+        } catch (e) {
+          console.error("background.js: Error creating supabase client:", e);
+          resolve(null);
+        }
+      }
+    );
+  });
+}
+
+// Immediately attempt to initialize (for debugging)
+initSupabaseClient();
+
+// 5) OnInstalled: just log and set up storage
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("CodeTracker extension installed")
-
-  // Initialize storage with empty arrays if needed
+  console.log("background.js: onInstalled event");
   chrome.storage.local.get(["savedProblems"], (result) => {
     if (!result.savedProblems) {
-      chrome.storage.local.set({ savedProblems: [] })
+      chrome.storage.local.set({ savedProblems: [] }, () => {
+        console.log("background.js: Initialized savedProblems = []");
+      });
+    } else {
+      console.log(
+        "background.js: savedProblems already present:",
+        result.savedProblems.length,
+        "items"
+      );
     }
-  })
-})
+  });
 
-// Listen for messages from content scripts
+  // Reminder log: the developer must run the seeding command manually once
+  console.log(
+    "background.js: If you have NOT seeded your keys yet, open the SW console and run:\n" +
+      "  chrome.storage.local.set({\n" +
+      "    SUPABASE_URL: \"https://YOUR-PROJECT.supabase.co\",\n" +
+      "    SUPABASE_ANON_KEY: \"<your-anon-key>\"\n" +
+      "  });"
+  );
+});
+
+// 6) Example message listener (unchanged)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "isProblemPage") {
-    // Don't try to change icon - just log
-    console.log("Problem page detected:", request.isProblemPage)
+    console.log("background.js: Problem page detected:", request.isProblemPage);
   }
+  return true;
+});
 
-  return true
-})
-
-// Optional: Sync with web app if user is logged in
+// 7) Example sync function (for when you want to call it later)
 async function syncWithWebApp() {
+  if (!supabaseExt) {
+    await initSupabaseClient();
+    if (!supabaseExt) return;
+  }
   try {
-    const { savedProblems } = await chrome.storage.local.get("savedProblems")
-
-    if (savedProblems && savedProblems.length > 0) {
-      // Send data to backend
-      const response = await fetch("https://codetracker-psi.vercel.app/api/problems", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ problems: savedProblems }),
-      })
-
-      if (response.ok) {
-        console.log("Successfully synced with web app")
+    chrome.storage.local.get(
+      ["savedProblems", "supabase_session"],
+      async (result) => {
+        const savedProblems = result.savedProblems || [];
+        const supaSession = result.supabase_session;
+        if (!supaSession || savedProblems.length === 0) {
+          console.log(
+            "background.js: syncWithWebApp: no session or no problems to sync"
+          );
+          return;
+        }
+        console.log(
+          "background.js: syncWithWebApp: forwarding",
+          savedProblems.length,
+          "items with token…"
+        );
+        const { access_token } = supaSession;
+        await fetch("https://codetracker-psi.vercel.app/api/problems", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token}`,
+          },
+          body: JSON.stringify({ problems: savedProblems }),
+        });
+        console.log("background.js: syncWithWebApp: successfully synced");
       }
-    }
+    );
   } catch (error) {
-    console.error("Error syncing with web app:", error)
+    console.error("background.js: syncWithWebApp error:", error);
   }
 }
+

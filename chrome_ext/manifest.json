@@ -2,8 +2,12 @@
   "manifest_version": 3,
   "name": "CodeTracker",
   "version": "1.0",
-  "description": "Save coding problems from various platforms for later review",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "identity"
+  ],
   "host_permissions": [
     "https://leetcode.com/*",
     "https://www.geeksforgeeks.org/*",
@@ -11,6 +15,15 @@
     "https://www.codechef.com/*",
     "https://codeforces.com/*",
     "https://*.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["vendor/supabase.js"],
+      "matches": ["<all_urls>"]
+    }
   ],
   "action": {
     "default_popup": "popup.html",
@@ -24,10 +37,6 @@
     "16": "images/icon16.png",
     "48": "images/icon48.png",
     "128": "images/icon128.png"
-  },
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
   },
   "content_scripts": [
     {
