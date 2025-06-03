@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,10 @@ export default function SignInPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setErrorMsg(error.message);
@@ -51,7 +54,7 @@ export default function SignInPage() {
         </button>
 
         <p className="text-sm text-gray-500">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <a href="/signup" className="text-blue-600 hover:underline">
             Sign Up
           </a>
