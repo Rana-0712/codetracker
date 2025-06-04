@@ -66,12 +66,12 @@ export default function RootLayout({
                         Add Topic
                       </Button>
                     </Link>
-                    <Link href="/settings">
+                    {/* <Link href="/settings">
                       <Button variant="ghost" size="sm" className="gap-2">
                         <Settings className="h-4 w-4" />
                         Settings
                       </Button>
-                    </Link>
+                    </Link> */}
                     <UserOrSignIn />
                     <ThemeToggle />
                   </nav>

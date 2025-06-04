@@ -45,6 +45,7 @@
         "https://www.geeksforgeeks.org/problems/*",
         "https://www.interviewbit.com/problems/*",
         "https://www.codechef.com/practice/*",
+        "https://www.codechef.com/*/problems/*",
         "https://codeforces.com/problemset/problem/*"
       ],
       "js": ["content.js"],

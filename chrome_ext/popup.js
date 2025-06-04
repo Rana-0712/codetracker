@@ -1,6 +1,6 @@
 // popup.js
 // ========
-// Handles authentication (Supabase Auth) and problem-detection/save logic.
+// Handles authentication (Supabase Auth) and problem‐detection/save logic.
 // Runs as an ES module; popup.html already loaded vendor/supabase.js, so `supabase` is global.
 
 const { createClient } = supabase; // from UMD build
@@ -33,24 +33,37 @@ async function initSupabaseClient() {
     log("ERROR: Supabase URL or anon key missing in storage");
     return null;
   }
-  supabaseExt = createClient(url, anonKey);
-  log("Supabase client initialized in popup");
+  // If we already created a client instance, reuse it. Otherwise, create a new one:
+  if (!supabaseExt) {
+    supabaseExt = createClient(url, anonKey);
+    log("Supabase client initialized in popup");
+  }
   return supabaseExt;
 }
 
-// ─── HELPER: Ask Supabase if this user already saved a problem with this URL ─────────────
-// ─── HELPER: Ask Supabase if this user already saved a problem with this URL ─────────────
-async function isSavedServerSide(url) {
+// ─── HELPER: Return the current logged‐in user (or null) ────────────────────────────────
+async function getCurrentUser() {
+  if (!supabaseExt) return null;
   const {
     data: { user },
-    error: userError,
+    error,
   } = await supabaseExt.auth.getUser();
-  if (userError || !user) {
-    console.error("isSavedServerSide: no user in Supabase client", userError);
+  if (error) {
+    console.error("getCurrentUser error:", error);
+    return null;
+  }
+  return user;
+}
+
+// ─── HELPER: Ask Supabase if this user already saved a problem with this URL (server‐side) ─
+async function isSavedServerSide(url) {
+  const user = await getCurrentUser();
+  if (!user) {
+    console.error("isSavedServerSide: no user in Supabase client");
     return false;
   }
 
-  // Use maybeSingle() so that “no match” does not produce an error object
+  // Query the `problems` table filtering by (user_id == currentUser.id AND url == url)
   const { data: existing, error: queryError } = await supabaseExt
     .from("problems")
     .select("id, topic")
@@ -62,10 +75,8 @@ async function isSavedServerSide(url) {
     console.error("isSavedServerSide: unexpected query error", queryError);
     return false;
   }
-
   return !!existing;
 }
-
 
 // ─── 3) DOM ELEMENT REFERENCES ────────────────────────────────────────────────────────
 const loadingViewEl      = document.getElementById("loading-view");
@@ -98,6 +109,7 @@ const savedTopicEl       = document.getElementById("saved-topic");
 
 // ─── 4) STATE ─────────────────────────────────────────────────────────────────────────
 let currentProblemData = null;
+let currentUserId      = null;
 let currentTabId       = null;
 
 // ─── 5) SHOW/HIDE FUNCTIONS ────────────────────────────────────────────────────────────
@@ -173,6 +185,7 @@ function showProblemDetected(problem) {
     topicsContainer.appendChild(noTopicsSpan);
   }
 
+  // Auto‐select a topic in the dropdown
   topicSelect.value = "dynamic-programming";
   if (problem.topics && problem.topics.length > 0) {
     const lowerTopics = problem.topics.map((t) => t.toLowerCase());
@@ -250,19 +263,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // 6a) First, try to see if supabaseExt already has a session (internal storage)
+  // 6a) Try to see if supabaseExt already has a session in‐memory (from a previous login)
   const {
     data: { session: existingSession },
   } = await supabaseExt.auth.getSession();
 
   if (existingSession && existingSession.access_token) {
     // Supabase client already has a valid session
-    const {
-      data: { user },
-      error: getUserError,
-    } = await supabaseExt.auth.getUser();
-
-    if (!getUserError && user) {
+    const user = await getCurrentUser();
+    if (user) {
+      currentUserId = user.id;
       showSignedInSkeleton(user.email);
       await checkProblemAndRender();
       return;
@@ -272,17 +282,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 6b) Otherwise, try to load supabase_session from chrome.storage.local
   chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
     if (supabase_session && supabase_session.access_token) {
+      // Explicitly set the session so in‐memory client sees it
       await supabaseExt.auth.setSession({
         access_token: supabase_session.access_token,
         refresh_token: supabase_session.refresh_token,
       });
 
-      const {
-        data: { user },
-        error: getUserError,
-      } = await supabaseExt.auth.getUser();
-
-      if (!getUserError && user) {
+      const user = await getCurrentUser();
+      if (user) {
+        currentUserId = user.id;
         showSignedInSkeleton(user.email);
         await checkProblemAndRender();
       } else {
@@ -294,15 +302,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 });
 
-async function bindAfterSignIn() {
-  // Instead of sending the JWT to a special route, just point to your homepage:
-  openWebappLink.href = "https://codetracker-psi.vercel.app";
 
-  await checkProblemAndRender();
-}
-
-
-// ─── 7) CHECK PROBLEM & RENDER UPDATED ───────────────────────────────────────────────────
+// ─── 7) CHECK PROBLEM & RENDER ───────────────────────────────────────────────────────────
 async function checkProblemAndRender() {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -319,36 +320,41 @@ async function checkProblemAndRender() {
 
           currentProblemData = response;
 
-          chrome.storage.local.get("savedProblems", async (data) => {
-            const savedProblems = data.savedProblems || [];
-
-            // Local check
-            const locallySaved = savedProblems.find(
+          // 7a) LOCAL CHECK – only for the currently signed‐in user:
+          const userId = currentUserId;
+          chrome.storage.local.get("savedProblemsByUser", async (data) => {
+            const allSaved = data.savedProblemsByUser || {};
+            const savedForMe = allSaved[userId] || [];
+            const locallySaved = savedForMe.find(
               (p) => p.url === currentProblemData.url
             );
 
-            // Server-side check
-            let serverSaved = false;
-            try {
-              serverSaved = await isSavedServerSide(currentProblemData.url);
-            } catch (err) {
-              console.error("checkProblemAndRender: Supabase error", err);
-              serverSaved = false;
-            }
-
             if (locallySaved) {
               showAlreadySaved(locallySaved);
-            } else if (serverSaved) {
-              showAlreadySaved({
-                title: currentProblemData.title,
-                topic: currentProblemData.topic || "dynamic-programming",
-                url: currentProblemData.url,
-              });
+              resolve();
             } else {
-              showProblemDetected(currentProblemData);
-            }
+              // 7b) SERVER‐SIDE CHECK – call Supabase
+              let serverSaved = false;
+              try {
+                serverSaved = await isSavedServerSide(currentProblemData.url);
+              } catch (err) {
+                console.error("checkProblemAndRender: Supabase error", err);
+                serverSaved = false;
+              }
 
-            resolve();
+              if (serverSaved) {
+                // If it exists on the server for _my_ user, show Already Saved
+                showAlreadySaved({
+                  title: currentProblemData.title,
+                  topic: currentProblemData.topic || "dynamic-programming",
+                  url: currentProblemData.url,
+                });
+              } else {
+                // Not found anywhere → let user save it
+                showProblemDetected(currentProblemData);
+              }
+              resolve();
+            }
           });
         }
       );
@@ -356,7 +362,8 @@ async function checkProblemAndRender() {
   });
 }
 
-// ─── 8) HANDLE SIGN-IN ────────────────────────────────────────────────────────────────
+
+// ─── 8) HANDLE SIGN‐IN ─────────────────────────────────────────────────────────────────
 loginButton.addEventListener("click", async () => {
   const emailInput    = document.getElementById("email");
   const passwordInput = document.getElementById("password");
@@ -380,26 +387,51 @@ loginButton.addEventListener("click", async () => {
     return;
   }
 
+  // 8a) We have a new session for User X
   const session = data.session;
+  const user    = data.user;
+  currentUserId = user.id;
+
+  // 8b) Store it in chrome.storage.local
   chrome.storage.local.set(
     {
       supabase_session: {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
-        user: session.user,
+        user: user,
       },
     },
-    () => {
-      showSignedInSkeleton(session.user.email);
+    async () => {
+      // 8c) ALSO force in‐memory supabaseExt to use that session immediately:
+      await supabaseExt.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      showSignedInSkeleton(user.email);
       bindAfterSignIn();
     }
   );
 });
 
-// ─── 9) HANDLE SIGN-OUT ───────────────────────────────────────────────────────────────
+
+// ─── 9) HANDLE SIGN‐OUT ─────────────────────────────────────────────────────────────────
 logoutButton.addEventListener("click", async () => {
-  await supabaseExt.auth.signOut();
-  chrome.storage.local.remove("supabase_session", () => {
+  // 9a) Supabase sign out
+  try {
+    await supabaseExt.auth.signOut();
+  } catch (e) {
+    console.warn("popup.js: supabaseExt.auth.signOut() threw:", e);
+  }
+  // 9b) Also clear any leftover in‐memory session
+  await supabaseExt.auth.setSession({ access_token: "", refresh_token: "" });
+
+  // 9c) Remove session and user‐specific saved problems from storage
+  chrome.storage.local.remove(["supabase_session"], () => {
+    // We do NOT remove savedProblemsByUser completely,
+    // because we want to preserve other users' data. Just clear currentUserId:
+    currentUserId = null;
+
     showSignInForm();
     notProblemPageEl.classList.add("hidden");
     problemDetectedEl.classList.add("hidden");
@@ -409,26 +441,23 @@ logoutButton.addEventListener("click", async () => {
   });
 });
 
-// ─── 10) SAVE PROBLEM ─────────────────────────────────────────────────────────────────
+
+// ─── 10) SAVE PROBLEM ───────────────────────────────────────────────────────────────────
 saveButton.addEventListener("click", async () => {
-  if (!currentProblemData) return;
+  if (!currentProblemData || !currentUserId) return;
   saveButton.disabled = true;
   saveButton.textContent = "Saving…";
 
-  const {
-    data: { user },
-    error: getUserError,
-  } = await supabaseExt.auth.getUser();
-
-  if (getUserError || !user) {
-    console.error("popup.js: Could not fetch user for saving:", getUserError);
+  const user = await getCurrentUser();
+  if (!user) {
+    console.error("popup.js: Could not fetch user for saving");
     alert("Session expired. Please sign in again.");
     saveButton.disabled = false;
     saveButton.textContent = "Save Problem";
     return;
   }
-  const userId = user.id;
 
+  // Build the problem object to save
   const problemToSave = {
     title: currentProblemData.title || "Unknown Problem",
     url: currentProblemData.url,
@@ -440,17 +469,23 @@ saveButton.addEventListener("click", async () => {
     topics: currentProblemData.topics || [],
     companies: currentProblemData.companies || [],
     dateAdded: new Date().toISOString(),
-    user_id: userId,
+    user_id: user.id,
   };
 
-  chrome.storage.local.get("savedProblems", async (data) => {
-    const savedProblems = data.savedProblems || [];
-    savedProblems.push(problemToSave);
-    chrome.storage.local.set({ savedProblems }, async () => {
-      log("Saved locally in extension");
-      console.log("Problem to save:", problemToSave);
+  // 10a) Store it locally, under this user’s bucket:
+  chrome.storage.local.get("savedProblemsByUser", async (data) => {
+    const allSaved = data.savedProblemsByUser || {};
+    const savedForMe = allSaved[user.id] || [];
+    savedForMe.push(problemToSave);
+    allSaved[user.id] = savedForMe;
 
+    chrome.storage.local.set({ savedProblemsByUser: allSaved }, async () => {
+      log("Saved locally in extension for user:", user.email);
+      console.log("Problem to save locally:", problemToSave);
+
+      // 10b) THEN attempt to save on the server
       try {
+        // Make sure in‐memory session is up‐to‐date
         const {
           data: { session },
           error: getSessionError,
@@ -465,6 +500,7 @@ saveButton.addEventListener("click", async () => {
           return;
         }
 
+        // POST to your web app’s /api/problems
         const response = await fetch(
           "https://codetracker-psi.vercel.app/api/problems",
           {
@@ -484,15 +520,10 @@ saveButton.addEventListener("click", async () => {
         } else {
           saveButton.textContent = "Saved Locally!";
         }
-        saveButton.classList.remove("bg-blue-600");
-        saveButton.classList.add("bg-green-600");
-
-        setTimeout(() => {
-          showAlreadySaved(problemToSave);
-        }, 1200);
       } catch (err) {
         console.error("Error saving to web app:", err);
         saveButton.textContent = "Saved Locally!";
+      } finally {
         saveButton.classList.remove("bg-blue-600");
         saveButton.classList.add("bg-green-600");
         setTimeout(() => {
@@ -503,23 +534,27 @@ saveButton.addEventListener("click", async () => {
   });
 });
 
-// ─── 11) VIEW BUTTON → Open Web App with JWT ──────────────────────────────────────────
+
+// ─── 11) VIEW BUTTON → Open Web App (no token in URL) ─────────────────────────────────
 viewButton.addEventListener("click", async () => {
-  // Remove the token‐passing and just open the site:
+  // Just open the homepage; we no longer pass the token in the URL
   chrome.tabs.create({ url: "https://codetracker-psi.vercel.app" });
 });
 
 
-// ─── 12) REMOVE BUTTON → Delete from Local Storage ────────────────────────────────────
+// ─── 12) REMOVE BUTTON → Delete from Local Storage (current user only) ────────────────
 removeButton.addEventListener("click", () => {
-  if (!currentProblemData) return;
-  chrome.storage.local.get("savedProblems", (data) => {
-    let savedProblems = data.savedProblems || [];
-    savedProblems = savedProblems.filter(
+  if (!currentProblemData || !currentUserId) return;
+  chrome.storage.local.get("savedProblemsByUser", (data) => {
+    const allSaved = data.savedProblemsByUser || {};
+    const savedForMe = allSaved[currentUserId] || [];
+    // Remove any entry whose url matches the current problem’s URL
+    const filtered = savedForMe.filter(
       (p) => p.url !== currentProblemData.url
     );
-    chrome.storage.local.set({ savedProblems }, () => {
-      log("Removed from local storage");
+    allSaved[currentUserId] = filtered;
+    chrome.storage.local.set({ savedProblemsByUser: allSaved }, () => {
+      log("Removed from local storage for user:", currentUserId);
       showProblemDetected(currentProblemData);
     });
   });

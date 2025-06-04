@@ -1,6 +1,8 @@
+// background.js
+
 console.log("background.js: starting up");
 
-// 1) Load the UMD build of Supabase
+// ─── 1) Load the UMD build of Supabase ───────────────────────────────────────────────
 try {
   importScripts("vendor/supabase.js");
   console.log("background.js: importScripts succeeded");
@@ -15,7 +17,6 @@ if (typeof supabase === "undefined") {
   console.log("background.js: global 'supabase' is present");
 }
 
-// 3) Grab createClient from that global (if available)
 let createClient = null;
 try {
   createClient = supabase.createClient;
@@ -30,7 +31,7 @@ try {
 
 let supabaseExt = null;
 
-// 4) Function to initialize the Supabase client from stored keys
+// ─── 3) Function to initialize the Supabase client from stored keys ──────────────────
 function initSupabaseClient() {
   return new Promise((resolve) => {
     chrome.storage.local.get(
@@ -45,10 +46,10 @@ function initSupabaseClient() {
           resolve(null);
           return;
         }
-        console.log("background.js: Found Supabase keys:", {
-          SUPABASE_URL,
-          SUPABASE_ANON_KEY: SUPABASE_ANON_KEY.slice(0, 8) + "…"
-        });
+        console.log(
+          "background.js: Found Supabase keys:",
+          { SUPABASE_URL, SUPABASE_ANON_KEY: SUPABASE_ANON_KEY.slice(0, 8) + "…"}
+        );
         try {
           supabaseExt = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
           console.log("background.js: Successfully created supabaseExt client");
@@ -62,40 +63,39 @@ function initSupabaseClient() {
   });
 }
 
-// Immediately attempt to initialize (for debugging)
+// Immediately attempt initialization for logging
 initSupabaseClient();
 
-// 5) OnInstalled: just log and set up storage
+// ─── 4) OnInstalled: initialize storage and clear any old session ─────────────────────
 chrome.runtime.onInstalled.addListener(() => {
   console.log("background.js: onInstalled event");
-  chrome.storage.local.get(["savedProblems"], (result) => {
-    if (!result.savedProblems) {
-      chrome.storage.local.set({ savedProblems: [] }, () => {
-        console.log("background.js: Initialized savedProblems = []");
+  // Ensure we have a place to store each user’s savedProblems:
+  chrome.storage.local.get(["savedProblemsByUser"], (result) => {
+    if (!result.savedProblemsByUser) {
+      chrome.storage.local.set({ savedProblemsByUser: {} }, () => {
+        console.log("background.js: Initialized savedProblemsByUser = {}");
       });
     } else {
       console.log(
-        "background.js: savedProblems already present:",
-        result.savedProblems.length,
-        "items"
+        "background.js: savedProblemsByUser already exists"
       );
     }
   });
 
-  // Clear session on install/update
+  // Clear supabase_session on install/update so user must re-authenticate:
   chrome.storage.local.remove("supabase_session");
+  console.log("background.js: Cleared supabase_session on install");
 
-  // Reminder log: the developer must run the seeding command manually once
   console.log(
-    "background.js: If you have NOT seeded your keys yet, open the SW console and run:\n" +
-      "  chrome.storage.local.set({\n" +
-      "    SUPABASE_URL: \"https://YOUR-PROJECT.supabase.co\",\n" +
-      "    SUPABASE_ANON_KEY: \"<your-anon-key>\"\n" +
-      "  });"
+    "background.js: If you have NOT seeded your Supabase keys yet, open the SW console and run:\n" +
+    "  chrome.storage.local.set({\n" +
+    "    SUPABASE_URL: \"https://YOUR_PROJECT_REF.supabase.co\",\n" +
+    "    SUPABASE_ANON_KEY: \"<your-anon-key>\"\n" +
+    "  });"
   );
 });
 
-// 6) Example message listener (unchanged)
+// ─── 5) Example message listener ─────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "isProblemPage") {
     console.log("background.js: Problem page detected:", request.isProblemPage);
@@ -103,61 +103,88 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// 7) Session validation
+// ─── 6) Session validation (optional) ─────────────────────────────────────────────────
 chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
   if (supabase_session?.access_token) {
     try {
-      const response = await fetch("https://codetracker-psi.vercel.app/api/validate-session", {
-        headers: {
-          Authorization: `Bearer ${supabase_session.access_token}`
+      const response = await fetch(
+        "https://codetracker-psi.vercel.app/api/validate-session",
+        {
+          headers: {
+            Authorization: `Bearer ${supabase_session.access_token}`,
+          },
         }
-      });
+      );
       if (!response.ok) {
+        console.warn("background.js: session invalid—removing supabase_session");
         chrome.storage.local.remove("supabase_session");
+      } else {
+        console.log("background.js: session still valid");
       }
     } catch (e) {
-      console.error("Session validation failed:", e);
+      console.error("background.js: Session validation failed:", e);
       chrome.storage.local.remove("supabase_session");
     }
+  } else {
+    console.log("background.js: no supabase_session to validate");
   }
 });
 
-// 8) Example sync function
+// ─── 7) Example sync function (partitions by user) ─────────────────────────────────────
 async function syncWithWebApp() {
   if (!supabaseExt) {
     await initSupabaseClient();
     if (!supabaseExt) return;
   }
-  try {
-    chrome.storage.local.get(
-      ["savedProblems", "supabase_session"],
-      async (result) => {
-        const savedProblems = result.savedProblems || [];
-        const supaSession = result.supabase_session;
-        if (!supaSession || savedProblems.length === 0) {
-          console.log(
-            "background.js: syncWithWebApp: no session or no problems to sync"
-          );
-          return;
-        }
+  chrome.storage.local.get(
+    ["savedProblemsByUser", "supabase_session"],
+    async (result) => {
+      const allSaved = result.savedProblemsByUser || {};
+      const supaSession = result.supabase_session;
+      if (!supaSession || !supaSession.access_token) {
         console.log(
-          "background.js: syncWithWebApp: forwarding",
-          savedProblems.length,
-          "items with token…"
+          "background.js: syncWithWebApp: no session to sync"
         );
-        const { access_token } = supaSession;
-        await fetch("https://codetracker-psi.vercel.app/api/problems", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${access_token}`,
-          },
-          body: JSON.stringify({ problems: savedProblems }),
-        });
-        console.log("background.js: syncWithWebApp: successfully synced");
+        return;
       }
-    );
-  } catch (error) {
-    console.error("background.js: syncWithWebApp error:", error);
-  }
+
+      const userId = supaSession.user.id;
+      const savedForMe = allSaved[userId] || [];
+      if (savedForMe.length === 0) {
+        console.log(
+          "background.js: syncWithWebApp: no problems to sync for user", userId
+        );
+        return;
+      }
+
+      console.log(
+        "background.js: syncWithWebApp: forwarding",
+        savedForMe.length,
+        "items for user", userId
+      );
+      try {
+        const response = await fetch(
+          "https://codetracker-psi.vercel.app/api/problems/bulk-sync",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supaSession.access_token}`,
+            },
+            body: JSON.stringify({ user_id: userId, problems: savedForMe }),
+          }
+        );
+        if (!response.ok) {
+          console.error("background.js: bulk-sync failed:", await response.text());
+        } else {
+          console.log("background.js: syncWithWebApp: successfully synced");
+        }
+      } catch (error) {
+        console.error("background.js: syncWithWebApp error:", error);
+      }
+    }
+  );
 }
+
+// (You can call syncWithWebApp() from wherever you need to trigger syncing.)
+
