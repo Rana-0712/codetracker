@@ -512,7 +512,8 @@ viewButton.addEventListener("click", async () => {
   } = await supabaseExt.auth.getSession();
   if (session && session.access_token) {
     chrome.tabs.create({
-      url: `https://codetracker-psi.vercel.app/auth/extension-login?token=${session.access_token}`,
+      // url: `https://codetracker-psi.vercel.app/auth/extension-login?token=${session.access_token}`,
+      url: "https://codetracker-psi.vercel.app",
     });
   } else {
     chrome.tabs.create({ url: "https://codetracker-psi.vercel.app" });
