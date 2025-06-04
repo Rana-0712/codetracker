@@ -1,3 +1,4 @@
+// app/api/problems/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -217,7 +218,7 @@ export async function POST(request: Request) {
       .single();
 
     // “PGRST116” means “no rows found,” which is fine here
-    if (existingError && (existingError as any).code !== "PGRST116") {
+    if (existingError && existingError.code !== "PGRST116") {
       console.error("Error checking existing problem:", existingError);
       const resp = NextResponse.json(
         { success: false, error: existingError.message },
