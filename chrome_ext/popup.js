@@ -39,6 +39,7 @@ async function initSupabaseClient() {
 }
 
 // ─── HELPER: Ask Supabase if this user already saved a problem with this URL ─────────────
+// ─── HELPER: Ask Supabase if this user already saved a problem with this URL ─────────────
 async function isSavedServerSide(url) {
   const {
     data: { user },
@@ -49,19 +50,22 @@ async function isSavedServerSide(url) {
     return false;
   }
 
+  // Use maybeSingle() so that “no match” does not produce an error object
   const { data: existing, error: queryError } = await supabaseExt
     .from("problems")
     .select("id, topic")
     .eq("url", url)
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (queryError && queryError.code !== "PGRST116") {
+  if (queryError) {
     console.error("isSavedServerSide: unexpected query error", queryError);
     return false;
   }
+
   return !!existing;
 }
+
 
 // ─── 3) DOM ELEMENT REFERENCES ────────────────────────────────────────────────────────
 const loadingViewEl      = document.getElementById("loading-view");
