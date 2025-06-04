@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Filter,
@@ -14,9 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-
-// Import your Supabase client (anon key) to read the session
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient"; // ensure this is properly initialized
 
 interface Topic {
   id: string;
@@ -37,63 +36,78 @@ interface Problem {
 }
 
 export default function Home() {
+  const router = useRouter();
+
   const [topics, setTopics] = useState<Topic[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // 1) Store the JWT once we fetch the Supabase session
   const [token, setToken] = useState<string>("");
 
+  // Persist session and optionally redirect
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setToken(data.session.access_token);
-      }
-    });
-  }, []);
+    const getSession = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-  // 2) Fetch topics & problems only after we have a token
+      if (session) {
+        setToken(session.access_token);
+      } else {
+        router.push("/signin");
+      }
+
+      if (error) {
+        console.error("Error getting session", error.message);
+      }
+    };
+
+    getSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          setToken(session.access_token);
+        }
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [router]);
+
   useEffect(() => {
-    if (!token) {
-      // Wait until token is set
-      return;
-    }
+    if (!token) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // Fetch topics with Authorization header
         const topicsRes = await fetch("/api/topics", {
-          method: "GET",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
-        if (!topicsRes.ok) {
-          throw new Error(`Failed to fetch topics: ${topicsRes.status}`);
-        }
-        const topicsData = await topicsRes.json();
 
-        // Fetch problems (limit 20) with Authorization header
         const problemsRes = await fetch("/api/problems?limit=20", {
-          method: "GET",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
-        if (!problemsRes.ok) {
-          throw new Error(`Failed to fetch problems: ${problemsRes.status}`);
-        }
-        const problemsData = await problemsRes.json();
 
-        setTopics(topicsData.topics || []);
-        setProblems(problemsData.problems || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+        if (!topicsRes.ok || !problemsRes.ok) throw new Error("Fetch failed");
+
+        const { topics } = await topicsRes.json();
+        const { problems } = await problemsRes.json();
+
+        setTopics(topics || []);
+        setProblems(problems || []);
+      } catch (err) {
+        console.error("Error fetching data", err);
       } finally {
         setLoading(false);
       }
@@ -102,84 +116,64 @@ export default function Home() {
     fetchData();
   }, [token]);
 
-  // Toggle completion status for a problem
-  const toggleCompletion = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId);
+  const toggleCompletion = async (id: string) => {
+    const target = problems.find((p) => p.id === id);
     if (!target || !token) return;
 
-    // Optimistically update UI
     setProblems((prev) =>
-      prev.map((p) =>
-        p.id === problemId ? { ...p, completed: !p.completed } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, completed: !p.completed } : p))
     );
 
     try {
-      const res = await fetch(`/api/problems/${problemId}`, {
+      const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ completed: !target.completed }),
       });
 
-      if (!res.ok) {
-        // Revert if API call failed
-        setProblems((prev) =>
-          prev.map((p) =>
-            p.id === problemId ? { ...p, completed: target.completed } : p
-          )
-        );
-      }
-    } catch (error) {
-      console.error("Error toggling completion:", error);
-      // Revert on error
+      if (!res.ok) throw new Error("Toggle failed");
+    } catch (err) {
+      console.error("Toggle error", err);
       setProblems((prev) =>
-        prev.map((p) =>
-          p.id === problemId ? { ...p, completed: target.completed } : p
-        )
+        prev.map((p) => (p.id === id ? { ...p, completed: target.completed } : p))
       );
     }
   };
 
-  // Delete a problem
-  const deleteProblem = async (problemId: string) => {
-    const target = problems.find((p) => p.id === problemId);
+  const deleteProblem = async (id: string) => {
+    const target = problems.find((p) => p.id === id);
     if (!target || !token) return;
 
-    // Optimistically remove from UI
-    setProblems((prev) => prev.filter((p) => p.id !== problemId));
+    setProblems((prev) => prev.filter((p) => p.id !== id));
 
     try {
-      const res = await fetch(`/api/problems/${problemId}`, {
+      const res = await fetch(`/api/problems/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!res.ok) {
-        // If deletion failed, re-add the problem to state
-        setProblems((prev) => [...prev, target]);
-        console.error(`Failed to delete problem: ${res.status}`);
-      }
-    } catch (error) {
-      console.error("Error deleting problem:", error);
-      // Revert on error
+
+      if (!res.ok) throw new Error("Delete failed");
+    } catch (err) {
+      console.error("Delete error", err);
       setProblems((prev) => [...prev, target]);
     }
   };
 
   const filteredProblems = problems.filter(
-    (problem) =>
-      problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      problem.number.toLowerCase().includes(searchQuery.toLowerCase())
+    (p) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-6 px-4">
-        {/* Topic Categories */}
+        {/* Topics */}
         <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
           {topics.map((topic) => (
             <Link href={`/topics/${topic.slug}`} key={topic.id}>
@@ -187,7 +181,7 @@ export default function Home() {
                 variant="outline"
                 className="py-2 px-4 text-base hover:bg-primary/10 cursor-pointer"
               >
-                {topic.name}{" "}
+                {topic.name}
                 <span className="ml-2 text-muted-foreground">{topic.count}</span>
               </Badge>
             </Link>
@@ -198,7 +192,7 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Search Bar */}
+        {/* Search */}
         <div className="flex gap-2 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -217,11 +211,8 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Loading State */}
         {loading ? (
-          <div className="text-center py-10 text-muted-foreground">
-            Loading...
-          </div>
+          <div className="text-center py-10 text-muted-foreground">Loading...</div>
         ) : (
           <div className="space-y-1">
             {filteredProblems.map((problem, index) => (
@@ -236,7 +227,6 @@ export default function Home() {
                     problem.completed ? "border-l-4 border-green-500" : ""
                   }`}
                 >
-                  {/* Completion Toggle */}
                   <div
                     onClick={() => toggleCompletion(problem.id)}
                     className="w-6 mr-4 flex-shrink-0 text-muted-foreground cursor-pointer"
@@ -244,11 +234,10 @@ export default function Home() {
                     {problem.completed ? (
                       <CheckCircle2 className="h-5 w-5 text-green-500" />
                     ) : (
-                      <div className="h-5 w-5 rounded-full border border-muted-foreground/30"></div>
+                      <div className="h-5 w-5 rounded-full border border-muted-foreground/30" />
                     )}
                   </div>
 
-                  {/* Link to Problem Description */}
                   <Link
                     href={`/problem/${problem.id}`}
                     className="flex items-center flex-1 ml-4 truncate"
@@ -260,26 +249,22 @@ export default function Home() {
                       {problem.title}
                     </div>
                     <div className="flex-shrink-0 w-36 ml-2 mr-4 overflow-hidden whitespace-nowrap">
-                      {problem.tags && problem.tags.length > 0 && (
-                        <>
-                          {problem.tags.slice(0, 2).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className="inline-block mr-1 text-sm px-2 py-1"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {problem.tags.length > 2 && (
-                            <Badge
-                              variant="outline"
-                              className="inline-block mr-1 text-sm px-2 py-1"
-                            >
-                              +{problem.tags.length - 2}
-                            </Badge>
-                          )}
-                        </>
+                      {problem.tags?.slice(0, 2).map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="outline"
+                          className="inline-block mr-1 text-sm px-2 py-1"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {problem.tags && problem.tags.length > 2 && (
+                        <Badge
+                          variant="outline"
+                          className="inline-block mr-1 text-sm px-2 py-1"
+                        >
+                          +{problem.tags.length - 2}
+                        </Badge>
                       )}
                     </div>
                     <div className="w-24 flex-shrink-0 text-right">
@@ -298,7 +283,6 @@ export default function Home() {
                     </div>
                   </Link>
 
-                  {/* External Link */}
                   <div className="w-8 ml-4 flex-shrink-0 text-center">
                     <a
                       href={problem.url}
@@ -310,7 +294,6 @@ export default function Home() {
                     </a>
                   </div>
 
-                  {/* Delete Button */}
                   <div
                     onClick={() => deleteProblem(problem.id)}
                     className="w-8 ml-2 flex-shrink-0 text-center cursor-pointer"
