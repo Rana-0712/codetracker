@@ -54,12 +54,12 @@ export default function RootLayout({
                         Home
                       </Button>
                     </Link>
-                    <Link href="/search">
+                    {/* <Link href="/search">
                       <Button variant="ghost" size="sm" className="gap-2">
                         <Search className="h-4 w-4" />
                         Search
                       </Button>
-                    </Link>
+                    </Link> */}
                     <Link href="/add-topic">
                       <Button variant="ghost" size="sm" className="gap-2">
                         <Plus className="h-4 w-4" />
@@ -72,7 +72,7 @@ export default function RootLayout({
                         Settings
                       </Button>
                     </Link>
-                    <UserOrSignIn /> {/* 🔥 This needs AuthProvider above it */}
+                    <UserOrSignIn />
                     <ThemeToggle />
                   </nav>
                 </div>

@@ -1,9 +1,7 @@
-// app/api/problems/route.ts
-
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── Initialize a Supabase admin client using your service-role key ────────────────────
+// ─── Initialize a Supabase admin client using your service‐role key ────────────────────
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -35,13 +33,42 @@ export async function OPTIONS() {
   return addCorsHeaders(response);
 }
 
-// ─── GET: fetch all problems (unchanged) ──────────────────────────────────────────────
+// ─── GET: fetch only the authenticated user's problems ────────────────────────────────
 export async function GET(request: Request) {
   try {
+    // 1) Extract Authorization header
+    const authHeader = request.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) {
+      return addCorsHeaders(
+        new NextResponse(
+          JSON.stringify({ error: "Missing Authorization token" }),
+          { status: 401 }
+        )
+      );
+    }
+
+    // 2) Verify the JWT and fetch the authenticated user
+    const {
+      data: { user },
+      error: getUserError,
+    } = await supabaseAdmin.auth.getUser(token);
+
+    if (getUserError || !user) {
+      return addCorsHeaders(
+        new NextResponse(
+          JSON.stringify({ error: "Invalid or expired token" }),
+          { status: 401 }
+        )
+      );
+    }
+
+    // 3) Parse optional ?limit= query param
     const url = new URL(request.url);
     const limitParam = url.searchParams.get("limit");
-    const limit = limitParam ? Number.parseInt(limitParam) : undefined;
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
+    // 4) Fetch only rows where user_id = authenticated user
     let query = supabaseAdmin
       .from("problems")
       .select(`
@@ -51,6 +78,7 @@ export async function GET(request: Request) {
           slug
         )
       `)
+      .eq("user_id", user.id) // ← filter by this user’s ID
       .order("created_at", { ascending: false });
 
     if (limit !== undefined) {
@@ -61,32 +89,34 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Error fetching problems:", error);
-      const resp = NextResponse.json(
-        { error: "Failed to fetch problems" },
-        { status: 500 }
+      return addCorsHeaders(
+        new NextResponse(
+          JSON.stringify({ error: "Failed to fetch problems" }),
+          { status: 500 }
+        )
       );
-      return addCorsHeaders(resp);
     }
 
+    // 5) Re‐format exactly as before
     const formattedProblems =
       problems?.map((problem) => ({
         ...problem,
         topic_name: problem.topics?.name,
-        number:
-          problem.number || String(Math.floor(Math.random() * 1000) + 1),
+        number: problem.number || String(Math.floor(Math.random() * 1000) + 1),
         success_rate: Math.floor(Math.random() * 60) + 20,
       })) || [];
 
     const resp = NextResponse.json({ problems: formattedProblems });
     return addCorsHeaders(resp);
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error in GET /api/problems:", err);
     const message = extractErrorMessage(err);
-    const resp = NextResponse.json(
-      { error: "Internal server error: " + message },
-      { status: 500 }
+    return addCorsHeaders(
+      new NextResponse(
+        JSON.stringify({ error: `Internal server error: ${message}` }),
+        { status: 500 }
+      )
     );
-    return addCorsHeaders(resp);
   }
 }
 
@@ -187,7 +217,7 @@ export async function POST(request: Request) {
       .single();
 
     // “PGRST116” means “no rows found,” which is fine here
-    if (existingError && existingError.code !== "PGRST116") {
+    if (existingError && (existingError as any).code !== "PGRST116") {
       console.error("Error checking existing problem:", existingError);
       const resp = NextResponse.json(
         { success: false, error: existingError.message },
@@ -223,12 +253,12 @@ export async function POST(request: Request) {
         difficulty: problem.difficulty || "Medium",
         description: problem.description || "",
         platform: problem.platform || "unknown",
-        topic_id: topicToUse.id,
+        topic_id: topicToUse!.id,
         notes: problem.notes || "",
         companies: problem.companies || [],
         tags: problem.topics || [],
         completed: false,
-        number: number,
+        number,
         user_id: user.id, // ← guaranteed to be non-null and valid
       })
       .select()
