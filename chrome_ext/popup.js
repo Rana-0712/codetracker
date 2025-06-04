@@ -295,14 +295,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function bindAfterSignIn() {
-  const {
-    data: { session },
-  } = await supabaseExt.auth.getSession();
-  const token = session.access_token;
-  openWebappLink.href = `https://codetracker-psi.vercel.app/auth/extension-login?token=${token}`;
+  // Instead of sending the JWT to a special route, just point to your homepage:
+  openWebappLink.href = "https://codetracker-psi.vercel.app";
 
   await checkProblemAndRender();
 }
+
 
 // ─── 7) CHECK PROBLEM & RENDER UPDATED ───────────────────────────────────────────────────
 async function checkProblemAndRender() {
@@ -507,18 +505,10 @@ saveButton.addEventListener("click", async () => {
 
 // ─── 11) VIEW BUTTON → Open Web App with JWT ──────────────────────────────────────────
 viewButton.addEventListener("click", async () => {
-  const {
-    data: { session },
-  } = await supabaseExt.auth.getSession();
-  if (session && session.access_token) {
-    chrome.tabs.create({
-      // url: `https://codetracker-psi.vercel.app/auth/extension-login?token=${session.access_token}`,
-      url: "https://codetracker-psi.vercel.app",
-    });
-  } else {
-    chrome.tabs.create({ url: "https://codetracker-psi.vercel.app" });
-  }
+  // Remove the token‐passing and just open the site:
+  chrome.tabs.create({ url: "https://codetracker-psi.vercel.app" });
 });
+
 
 // ─── 12) REMOVE BUTTON → Delete from Local Storage ────────────────────────────────────
 removeButton.addEventListener("click", () => {
