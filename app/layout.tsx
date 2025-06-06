@@ -3,16 +3,21 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Search, Home, Settings, Plus } from "lucide-react";
+import { Home, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider } from "@/context/AuthContext";
 import { UserOrSignIn } from "@/components/UserOrSignIn";
+import logo from "../public/codetracker logo1.png";
+import Image from "next/image";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  icons: {
+    icon: "/favicon1.ico",
+  },
   title: "CodeTracker",
   description: "Track and organize your coding practice problems",
 };
@@ -24,6 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/codetracker logo1.png" />
+      </head>
       <body className={inter.className}>
         <ThemeProvider
           attribute="class"
@@ -38,12 +46,15 @@ export default function RootLayout({
                 <div className="container mx-auto flex h-16 items-center justify-between px-6">
                   <div className="flex items-center gap-6">
                     <Link href="/" className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/60 rounded-lg flex items-center justify-center">
-                        <span className="text-primary-foreground font-bold text-sm">CT</span>
-                      </div>
-                      <span className="font-bold text-xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      <Image
+                        src={logo}
+                        alt="CodeTracker Logo"
+                        width={48}
+                        height={48}
+                      />
+                      {/* <span className="font-bold text-xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                         CodeTracker
-                      </span>
+                      </span> */}
                     </Link>
                   </div>
 
