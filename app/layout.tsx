@@ -15,9 +15,9 @@ import Image from "next/image";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  icons: {
-    icon: "/favicon1.ico",
-  },
+  // icons: {
+  //   icon: "/favicon1.ico",
+  // },
   title: "CodeTracker",
   description: "Track and organize your coding practice problems",
 };
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/codetracker logo1.png" />
+        <link rel="icon" href="/codetracker logo2.png" />
       </head>
       <body className={inter.className}>
         <ThemeProvider

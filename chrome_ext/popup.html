@@ -3,212 +3,488 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CodeTracker Popup</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-    rel="stylesheet"
-  />
+  <title>CodeTracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <style>
     body {
-      width: 350px;
-      min-height: 400px;
-      font-family: system-ui, -apple-system, sans-serif;
+      width: 360px;
+      min-height: 450px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow-x: hidden;
     }
-    /* Simple spinner (pure CSS) */
+    
+    /* Modern spinner with pulse effect */
     .spinner {
-      border: 4px solid rgba(0,0,0,0.1);
-      width: 36px;
-      height: 36px;
+      position: relative;
+      width: 40px;
+      height: 40px;
+    }
+    
+    .spinner-ring {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 3px solid transparent;
+      border-top-color: #059669;
       border-radius: 50%;
-      border-left-color: #4b5563; /* gray-700 */
       animation: spin 1s linear infinite;
     }
+    
+    .spinner-ring:nth-child(2) {
+      width: 30px;
+      height: 30px;
+      top: 5px;
+      left: 5px;
+      border-top-color: #047857;
+      animation-duration: 0.85s;
+      animation-direction: reverse;
+    }
+    
+    .spinner-ring:nth-child(3) {
+      width: 20px;
+      height: 20px;
+      top: 10px;
+      left: 10px;
+      border-top-color: #374151;
+      animation-duration: 0.75s;
+    }
+    
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+    
+    /* Fade in animation */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Slide transitions */
+    .slide-enter {
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    /* Pulse animation for status indicator */
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+    
+    /* Input focus styles */
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3);
+    }
+    
+    /* Button hover effects */
+    .btn-hover-effect {
+      transition: all 0.2s ease;
+    }
+    
+    .btn-hover-effect:hover {
+      transform: translateY(-1px);
+    }
+    
+    .btn-hover-effect:active {
+      transform: translateY(1px);
+    }
+
+    /* Force save button visibility */
+    #save-button {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background: linear-gradient(to right, #059669, #374151) !important;
+      color: white !important;
+      border: none !important;
+      min-height: 44px !important;
+      font-weight: 600 !important;
+    }
+
+    #save-button:hover {
+      background: linear-gradient(to right, #047857, #1f2937) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    #save-button:disabled {
+      opacity: 0.7 !important;
+      cursor: not-allowed !important;
+    }
+
+    /* Force view button visibility */
+    #view-button {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background: linear-gradient(to right, #059669, #374151) !important;
+      color: white !important;
+      border: none !important;
+      min-height: 44px !important;
+      font-weight: 600 !important;
+    }
+
+    #view-button:hover {
+      background: linear-gradient(to right, #047857, #1f2937) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    #view-button:disabled {
+      opacity: 0.7 !important;
+      cursor: not-allowed !important;
+    }
+
+    /* Ensure the problem detected section is visible */
+    #problem-detected {
+      display: block !important;
+    }
+
+    #problem-detected.hidden {
+      display: none !important;
     }
   </style>
 </head>
 <body class="bg-gray-50">
-  <div class="p-4">
-    <!-- ─── LOADING VIEW ───────────────────────────────────────────────────────────────── -->
-    <div id="loading-view" class="flex flex-col items-center justify-center space-y-2">
-      <div class="spinner"></div>
-      <p class="text-gray-600 text-sm">Loading…</p>
-    </div>
-
-    <!-- ─── AUTHENTICATION UI ───────────────────────────────────────────────────────── -->
-    <div id="auth-container" class="hidden">
-      <!-- If not signed in, show sign-in form -->
-      <div id="signin-form" class="space-y-3">
-        <div class="flex items-center justify-between mb-4">
+  <div class="relative">
+    <!-- App Header - Always visible -->
+    <header class="bg-gradient-to-r from-emerald-600 to-gray-700 text-white p-4 shadow-md">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <img src="images/codetracker logo2.png" alt="CodeTracker" class="h-6 w-6" />
           <h1 class="text-xl font-bold">CodeTracker</h1>
-          <!-- status-indicator toggled by JS -->
-          <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-300"></div>
         </div>
-        <p class="text-gray-700 text-sm">Please sign in to save problems.</p>
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            id="email"
-            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm"
-            placeholder="you@example.com"
-          />
-        </div>
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-          <input
-            type="password"
-            id="password"
-            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm"
-            placeholder="••••••••"
-          />
-        </div>
-        <button
-          id="login-button"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
-        >
-          Sign In
-        </button>
-        <p id="login-error" class="text-red-600 text-sm hidden"></p>
-      </div>
-
-      <!-- If signed in, show “Signed in as …” and a Sign Out button -->
-      <div id="signed-in-view" class="hidden space-y-3">
-        <div class="flex items-center justify-between">
-          <h1 class="text-xl font-bold">CodeTracker</h1>
-          <button
-            id="logout-button"
-            class="text-sm text-red-600 hover:underline"
-          >
+        <div id="header-actions" class="hidden">
+          <button id="logout-button" class="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-1 rounded-full transition-all">
             Sign Out
           </button>
         </div>
-        <p class="text-sm text-gray-700" id="user-email-text">
-          <!-- “Signed in as you@example.com” -->
-        </p>
       </div>
-    </div>
+    </header>
 
-    <hr class="my-4" />
-
-    <!-- ─── PROBLEM DETECTION / SAVE UI ───────────────────────────────────────────────── -->
-    <div id="not-problem-page" class="hidden">
-      <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
-        <p class="text-yellow-800 text-sm">
-          Navigate to a coding problem page to save it.
-        </p>
-      </div>
-      <p class="text-sm text-gray-600 mb-2">Supported platforms:</p>
-      <ul class="text-sm text-gray-600 list-disc pl-5 mb-4">
-        <li>LeetCode</li>
-        <li>GeeksForGeeks</li>
-        <li>InterviewBit</li>
-        <li>CodeChef</li>
-        <li>Codeforces</li>
-      </ul>
-    </div>
-
-    <div id="problem-detected" class="hidden">
-      <div class="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-        <p class="text-green-800 text-sm">
-          Problem detected! You can save this problem.
-        </p>
+    <!-- Main Content Area -->
+    <main class="p-4">
+      <!-- ─── LOADING VIEW ───────────────────────────────────────────────────────────────── -->
+      <div id="loading-view" class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="spinner">
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+        </div>
+        <p class="text-emerald-600 font-medium">Loading CodeTracker...</p>
       </div>
 
-      <div class="mb-4">
-        <h2 class="font-medium mb-1">Problem Title</h2>
-        <p id="problem-title" class="text-sm bg-white border rounded-md p-2">-</p>
-      </div>
+      <!-- ─── AUTHENTICATION UI ───────────────────────────────────────────────────────── -->
+      <div id="auth-container" class="hidden fade-in">
+        <!-- If not signed in, show sign-in form -->
+        <div id="signin-form" class="space-y-4">
+          <div class="text-center mb-6">
+            <div class="inline-block p-3 bg-emerald-100 rounded-full mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800">Welcome Back</h2>
+            <p class="text-gray-600 text-sm">Sign in to save your coding problems</p>
+          </div>
+          
+          <div class="space-y-3">
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                  </svg>
+                </div>
+                <input
+                  type="email"
+                  id="email"
+                  class="pl-10 block w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 transition-all"
+                  placeholder="you@example.com"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <input
+                  type="password"
+                  id="password"
+                  class="pl-10 block w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <button
+            id="login-button"
+            class="w-full bg-gradient-to-r from-emerald-600 to-gray-700 hover:from-emerald-700 hover:to-gray-800 text-white font-medium py-2.5 px-4 rounded-lg transition-all btn-hover-effect"
+          >
+            Sign In
+          </button>
+          
+          <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
+        </div>
 
-      <div class="mb-4">
-        <h2 class="font-medium mb-1">Difficulty</h2>
-        <p id="problem-difficulty" class="text-sm">-</p>
-      </div>
-
-      <div class="mb-4">
-        <h2 class="font-medium mb-1">Topics</h2>
-        <div id="problem-topics" class="flex flex-wrap gap-1">
-          <span class="text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Loading...</span>
+        <!-- If signed in, show "Signed in as …" -->
+        <div id="signed-in-view" class="hidden fade-in">
+          <div class="flex items-center space-x-3 mb-2">
+            <div class="bg-emerald-100 rounded-full p-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm text-gray-700 font-medium" id="user-email-text">
+                <!-- "Signed in as you@example.com" -->
+              </p>
+              <p class="text-xs text-gray-500">Account active</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="mb-4">
-        <label for="topic-select" class="block font-medium mb-1">Save to Topic</label>
-        <select id="topic-select" class="w-full p-2 border rounded-md text-sm">
-          <option value="dynamic-programming">Dynamic Programming</option>
-          <option value="arrays">Arrays</option>
-          <option value="strings">Strings</option>
-          <option value="trees">Trees</option>
-          <option value="graphs">Graphs</option>
-          <option value="linked-lists">Linked Lists</option>
-          <option value="stacks-queues">Stacks and Queues</option>
-          <option value="binary-search">Binary Search</option>
-          <option value="greedy">Greedy</option>
-          <option value="backtracking">Backtracking</option>
-        </select>
+      <!-- ─── PROBLEM DETECTION / SAVE UI ───────────────────────────────────────────────── -->
+      <div id="not-problem-page" class="hidden fade-in mt-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+          <div class="flex items-start space-x-3">
+            <div class="bg-amber-100 rounded-full p-2 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-amber-800 font-medium">Not a coding problem page</p>
+              <p class="text-amber-700 text-sm mt-1">
+                Navigate to a coding problem page to save it.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <h3 class="font-medium text-gray-800 mb-2">Supported Platforms</h3>
+          <ul class="space-y-2">
+            <li class="flex items-center space-x-2">
+              <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span class="text-gray-600 text-sm">LeetCode</span>
+            </li>
+            <li class="flex items-center space-x-2">
+              <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span class="text-gray-600 text-sm">GeeksForGeeks</span>
+            </li>
+            <li class="flex items-center space-x-2">
+              <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span class="text-gray-600 text-sm">InterviewBit</span>
+            </li>
+            <li class="flex items-center space-x-2">
+              <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span class="text-gray-600 text-sm">CodeChef</span>
+            </li>
+            <li class="flex items-center space-x-2">
+              <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <span class="text-gray-600 text-sm">Codeforces</span>
+            </li>
+          </ul>
+        </div>
       </div>
 
-      <div class="mb-4">
-        <label for="notes" class="block font-medium mb-1">Notes (optional)</label>
-        <textarea
-          id="notes"
-          class="w-full p-2 border rounded-md text-sm h-20"
-          placeholder="Add your notes here..."
-        ></textarea>
-      </div>
+      <div id="problem-detected" class="hidden fade-in mt-4">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div class="flex items-start space-x-3">
+            <div class="bg-green-100 rounded-full p-2 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-green-800 font-medium">Problem detected!</p>
+              <p class="text-green-700 text-sm mt-1">
+                You can save this problem to your collection.
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <button
-        id="save-button"
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
-      >
-        Save Problem
-      </button>
-    </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm mb-4">
+          <div class="mb-4">
+            <h2 class="text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Problem Title</h2>
+            <p id="problem-title" class="text-gray-800 font-medium bg-gray-50 border rounded-lg p-3 text-sm">-</p>
+          </div>
 
-    <div id="already-saved" class="hidden">
-      <div class="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-        <p class="text-blue-800 text-sm">
-          You've already saved this problem!
-        </p>
-      </div>
+          <div class="mb-4">
+            <h2 class="text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Difficulty</h2>
+            <p id="problem-difficulty" class="text-sm inline-flex items-center">-</p>
+          </div>
 
-      <div class="mb-4">
-        <h2 class="font-medium mb-1">Problem Title</h2>
-        <p id="saved-title" class="text-sm bg-white border rounded-md p-2">-</p>
-      </div>
+          <div class="mb-4">
+            <h2 class="text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Topics</h2>
+            <div id="problem-topics" class="flex flex-wrap gap-1.5 mt-1">
+              <span class="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2.5 py-1">Loading...</span>
+            </div>
+          </div>
+        </div>
 
-      <div class="mb-4">
-        <h2 class="font-medium mb-1">Saved in Topic</h2>
-        <p id="saved-topic" class="text-sm">-</p>
-      </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm mb-4">
+          <div class="mb-4">
+            <label for="topic-select" class="block text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Save to Topic</label>
+            <div class="relative">
+              <select id="topic-select" class="appearance-none w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm pr-10">
+                <option value="dynamic-programming">Dynamic Programming</option>
+                <option value="arrays">Arrays</option>
+                <option value="strings">Strings</option>
+                <option value="trees">Trees</option>
+                <option value="graphs">Graphs</option>
+                <option value="linked-lists">Linked Lists</option>
+                <option value="stacks-queues">Stacks and Queues</option>
+                <option value="binary-search">Binary Search</option>
+                <option value="greedy">Greedy</option>
+                <option value="backtracking">Backtracking</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
 
-      <div class="flex gap-2">
+          <div>
+            <label for="notes" class="block text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Notes (optional)</label>
+            <textarea
+              id="notes"
+              class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm h-20 resize-none"
+              placeholder="Add your notes here..."
+            ></textarea>
+          </div>
+        </div>
+
         <button
-          id="view-button"
-          class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-md"
+          id="save-button"
+          type="button"
+          style="display: flex; background: linear-gradient(to right, #059669, #374151); color: white; min-height: 44px;"
+          class="w-full text-white font-semibold py-3 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 btn-hover-effect"
         >
-          View in App
-        </button>
-        <button
-          id="remove-button"
-          class="flex-1 bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-md"
-        >
-          Remove
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+          </svg>
+          <span>Save Problem</span>
         </button>
       </div>
-    </div>
 
-    <div class="mt-4 pt-4 border-t border-gray-200">
+      <div id="already-saved" class="hidden fade-in mt-4">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+          <div class="flex items-start space-x-3">
+            <div class="bg-indigo-100 rounded-full p-2 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-indigo-800 font-medium">Already saved!</p>
+              <p class="text-indigo-700 text-sm mt-1">
+                This problem is in your collection.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm mb-4">
+          <div class="mb-4">
+            <h2 class="text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Problem Title</h2>
+            <p id="saved-title" class="text-gray-800 font-medium bg-gray-50 border rounded-lg p-3 text-sm">-</p>
+          </div>
+
+          <div class="mb-4">
+            <h2 class="text-xs uppercase text-gray-500 font-medium tracking-wider mb-1">Saved in Topic</h2>
+            <div class="mt-1">
+              <span id="saved-topic" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+                -
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            id="view-button"
+            class="flex-1 bg-gradient-to-r from-emerald-600 to-gray-700 hover:from-emerald-700 hover:to-gray-800 text-white font-medium py-2.5 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 btn-hover-effect"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span>View</span>
+          </button>
+          <button
+            id="remove-button"
+            class="flex-1 bg-white border border-red-300 hover:bg-red-50 text-red-600 font-medium py-2.5 px-4 rounded-lg transition-all flex items-center justify-center space-x-2 btn-hover-effect"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Remove</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-4 border-t border-gray-200 mt-2">
       <a
         href="#"
         id="open-webapp-link"
-        class="text-sm text-blue-600 hover:underline"
+        class="flex items-center justify-center space-x-2 text-emerald-600 hover:text-emerald-800 transition-colors text-sm font-medium"
         target="_blank"
       >
-        Open CodeTracker Web App
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        <span>Open CodeTracker Web App</span>
       </a>
-    </div>
+    </footer>
+
+    <!-- Status indicator (floating) -->
+    <div id="status-indicator" class="hidden absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-gray-300"></div>
   </div>
 
   <!-- 1) Load the local UMD build of Supabase (not a CDN) -->
