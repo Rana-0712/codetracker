@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider } from "@/context/AuthContext";
 import { UserOrSignIn } from "@/components/UserOrSignIn";
-import logo from "../public/codetracker logo1.png";
+import logo from "../public/codetracker logo2.png";
 import Image from "next/image";
 
 const inter = Inter({ subsets: ["latin"] });
