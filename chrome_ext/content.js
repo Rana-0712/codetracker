@@ -285,6 +285,7 @@ function extractLeetCodeData(data) {
 function extractGeeksForGeeksData(data) {
   // Title
   const titleSelectors = [
+    "problems_header_content__title__L2cB2 ",
     ".problem-statement h1",
     ".problemTitle",
     "h1",

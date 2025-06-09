@@ -21,7 +21,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["vendor/supabase.js"],
+      "resources": ["vendor/supabase.js", "config.js"],
       "matches": ["<all_urls>"]
     }
   ],
@@ -42,6 +42,7 @@
     {
       "matches": [
         "https://leetcode.com/problems/*",
+        "https://leetcode.com/contest/*/problems/*",
         "https://www.geeksforgeeks.org/problems/*",
         "https://www.interviewbit.com/problems/*",
         "https://www.codechef.com/practice/*",

@@ -13,29 +13,30 @@ const log = (...args) => {
 // ─── 1) READ SUPABASE KEYS FROM chrome.storage.local ────────────────────────────────────
 async function getEnv() {
   return new Promise((resolve) => {
-    window.chrome.storage.local.get(["SUPABASE_URL", "SUPABASE_ANON_KEY"], (items) => {
-      resolve({
-        url: items.SUPABASE_URL,
-        anonKey: items.SUPABASE_ANON_KEY,
-      })
-    })
-  })
+    window.chrome.storage.local.get(
+      ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+      (items) => {
+        const url = items.SUPABASE_URL || NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = items.SUPABASE_ANON_KEY || NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        resolve({ url, anonKey });
+      }
+    );
+  });
 }
 
 // ─── 2) INITIALIZE SUPABASE CLIENT FOR EXTENSION ───────────────────────────────────────
 let supabaseExt = null
 async function initSupabaseClient() {
-  const { url, anonKey } = await getEnv()
+  const { url, anonKey } = await getEnv();
   if (!url || !anonKey) {
-    log("ERROR: Supabase URL or anon key missing in storage")
-    return null
+    log("ERROR: Missing Supabase URL or anon key (storage + config fallback)");
+    return null;
   }
-  // If we already created a client instance, reuse it. Otherwise, create a new one:
   if (!supabaseExt) {
-    supabaseExt = createClient(url, anonKey)
-    log("Supabase client initialized in popup")
+    supabaseExt = createClient(url, anonKey);
+    log("Supabase client initialized in popup", { url, anonKey: anonKey.slice(0,8)+"…" });
   }
-  return supabaseExt
+  return supabaseExt;
 }
 
 // ─── HELPER: Return the current logged‐in user (or null) ────────────────────────────────
@@ -230,12 +231,28 @@ function showProblemDetected(problem) {
       const span = document.createElement("span")
       span.className = "text-xs bg-emerald-100 text-emerald-800 rounded-full px-2.5 py-1"
       span.textContent = topic
+      // Force styling to ensure visibility
+      span.style.display = "inline-flex"
+      span.style.visibility = "visible"
+      span.style.opacity = "1"
+      span.style.backgroundColor = "#d1fae5"
+      span.style.color = "#065f46"
+      span.style.border = "1px solid #a7f3d0"
+      span.style.borderRadius = "9999px"
+      span.style.padding = "0.25rem 0.75rem"
+      span.style.margin = "0.125rem"
+      span.style.fontSize = "0.75rem"
+      span.style.fontWeight = "500"
       topicsContainer.appendChild(span)
     })
   } else {
     const noTopicsSpan = document.createElement("span")
     noTopicsSpan.className = "text-xs text-gray-500"
     noTopicsSpan.textContent = "No topics detected"
+    // Force styling for the "No topics detected" message
+    noTopicsSpan.style.display = "inline-flex"
+    noTopicsSpan.style.visibility = "visible"
+    noTopicsSpan.style.opacity = "1"
     topicsContainer.appendChild(noTopicsSpan)
   }
 
@@ -324,6 +341,18 @@ function showAlreadySaved(problem) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ")
   savedTopicEl.textContent = topicDisplay
+
+  // Force styling to ensure saved topic visibility
+  savedTopicEl.style.display = "inline-flex"
+  savedTopicEl.style.visibility = "visible"
+  savedTopicEl.style.opacity = "1"
+  savedTopicEl.style.backgroundColor = "#d1fae5"
+  savedTopicEl.style.color = "#065f46"
+  savedTopicEl.style.border = "1px solid #a7f3d0"
+  savedTopicEl.style.borderRadius = "9999px"
+  savedTopicEl.style.padding = "0.25rem 0.75rem"
+  savedTopicEl.style.margin = "0.125rem"
+  savedTopicEl.style.fontWeight = "500"
 
   // FORCE the view button to be visible with explicit styling
   viewButton.innerHTML = `
@@ -485,6 +514,19 @@ loginButton.addEventListener("click", async () => {
 
   loginErrorEl.classList.add("hidden")
   loginButton.disabled = true
+
+  // Force button styling to ensure visibility
+  loginButton.style.display = "flex"
+  loginButton.style.visibility = "visible"
+  loginButton.style.opacity = "1"
+  loginButton.style.background = "linear-gradient(to right, #059669, #374151)"
+  loginButton.style.color = "white"
+  loginButton.style.minHeight = "44px"
+  loginButton.style.fontWeight = "600"
+  loginButton.style.width = "100%"
+  loginButton.style.justifyContent = "center"
+  loginButton.style.alignItems = "center"
+
   loginButton.innerHTML = `
     <div class="inline-flex items-center">
       <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -505,6 +547,19 @@ loginButton.addEventListener("click", async () => {
     loginErrorEl.classList.remove("hidden")
     loginButton.innerHTML = `Sign In`
     loginButton.disabled = false
+
+    // Force button styling to ensure visibility
+    loginButton.style.display = "flex"
+    loginButton.style.visibility = "visible"
+    loginButton.style.opacity = "1"
+    loginButton.style.background = "linear-gradient(to right, #059669, #374151)"
+    loginButton.style.color = "white"
+    loginButton.style.minHeight = "44px"
+    loginButton.style.fontWeight = "600"
+    loginButton.style.width = "100%"
+    loginButton.style.justifyContent = "center"
+    loginButton.style.alignItems = "center"
+
     return
   }
 

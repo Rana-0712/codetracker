@@ -144,6 +144,40 @@
       cursor: not-allowed !important;
     }
 
+    /* Force topic tags visibility */
+    #problem-topics span {
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background-color: #d1fae5 !important; /* emerald-100 */
+      color: #065f46 !important; /* emerald-800 */
+      border: 1px solid #a7f3d0 !important; /* emerald-200 */
+      border-radius: 9999px !important;
+      padding: 0.25rem 0.75rem !important;
+      margin: 0.125rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1rem !important;
+      font-weight: 500 !important;
+    }
+
+    #problem-topics span:hover {
+      background-color: #a7f3d0 !important; /* emerald-200 */
+    }
+
+    /* Ensure saved topic pill is visible */
+    #saved-topic {
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background-color: #d1fae5 !important; /* emerald-100 */
+      color: #065f46 !important; /* emerald-800 */
+      border: 1px solid #a7f3d0 !important; /* emerald-200 */
+      border-radius: 9999px !important;
+      padding: 0.25rem 0.75rem !important;
+      margin: 0.125rem !important;
+      font-weight: 500 !important;
+    }
+
     /* Force view button visibility */
     #view-button {
       display: flex !important;
@@ -173,6 +207,33 @@
 
     #problem-detected.hidden {
       display: none !important;
+    }
+
+    /* Force login button visibility */
+    #login-button {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background: linear-gradient(to right, #059669, #374151) !important;
+      color: white !important;
+      border: none !important;
+      min-height: 44px !important;
+      font-weight: 600 !important;
+      width: 100% !important;
+      justify-content: center !important;
+      align-items: center !important;
+      padding: 0.625rem 1rem !important;
+      border-radius: 0.5rem !important;
+    }
+
+    #login-button:hover {
+      background: linear-gradient(to right, #047857, #1f2937) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    #login-button:disabled {
+      opacity: 0.7 !important;
+      cursor: not-allowed !important;
     }
   </style>
 </head>
@@ -487,6 +548,7 @@
     <div id="status-indicator" class="hidden absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-gray-300"></div>
   </div>
 
+  <script src="config.js"></script>
   <!-- 1) Load the local UMD build of Supabase (not a CDN) -->
   <script src="vendor/supabase.js"></script>
   <!-- 2) Load our popup.js, which expects `supabase` global to be present -->
