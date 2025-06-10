@@ -286,10 +286,10 @@ function extractGeeksForGeeksData(data) {
   // Title
   const titleSelectors = [
     "problems_header_content__title__L2cB2 ",
-    ".problem-statement h1",
-    ".problemTitle",
-    "h1",
-    ".header-title"
+    // ".problem-statement h1",
+    // ".problemTitle",
+    // "h1",
+    // ".header-title"
   ];
   for (const selector of titleSelectors) {
     const titleElement = document.querySelector(selector);
