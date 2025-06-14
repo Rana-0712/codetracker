@@ -1,4 +1,3 @@
-// app/topics/[slug]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 
-// Import your Supabase client (anon key) to read the session
 import { supabase } from "@/lib/supabaseClient";
 
 interface Topic {

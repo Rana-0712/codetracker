@@ -1,14 +1,13 @@
-// app/api/problems/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── Initialize a Supabase admin client using your service‐role key ────────────────────
+//  Initialize a Supabase admin client using your service‐role key 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ─── Helper: Add CORS headers to all responses ───────────────────────────────────────
+//  Helper: Add CORS headers to all responses 
 function addCorsHeaders(response: NextResponse) {
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set(
@@ -22,22 +21,22 @@ function addCorsHeaders(response: NextResponse) {
   return response;
 }
 
-// ─── Helper: Safely extract a message from unknown error ─────────────────────────────
+// Helper: Safely extract a message from unknown error 
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
 }
 
-// ─── OPTIONS (CORS preflight) ─────────────────────────────────────────────────────────
+//  OPTIONS (CORS preflight) 
 export async function OPTIONS() {
   const response = new NextResponse(null, { status: 200 });
   return addCorsHeaders(response);
 }
 
-// ─── GET: fetch only the authenticated user's problems ────────────────────────────────
+//  GET: fetch only the authenticated user's problems 
 export async function GET(request: Request) {
   try {
-    // 1) Extract Authorization header
+    // Extract Authorization header
     const authHeader = request.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) {
@@ -49,7 +48,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // 2) Verify the JWT and fetch the authenticated user
+    // Verify the JWT and fetch the authenticated user
     const {
       data: { user },
       error: getUserError,
@@ -64,12 +63,12 @@ export async function GET(request: Request) {
       );
     }
 
-    // 3) Parse optional ?limit= query param
+    // Parse optional ?limit= query param
     const url = new URL(request.url);
     const limitParam = url.searchParams.get("limit");
     const limit = limitParam ? parseInt(limitParam, 10) : undefined;
 
-    // 4) Fetch only rows where user_id = authenticated user
+    // Fetch only rows where user_id = authenticated user
     let query = supabaseAdmin
       .from("problems")
       .select(`
@@ -79,7 +78,7 @@ export async function GET(request: Request) {
           slug
         )
       `)
-      .eq("user_id", user.id) // ← filter by this user’s ID
+      .eq("user_id", user.id) // filter by this user’s ID
       .order("created_at", { ascending: false });
 
     if (limit !== undefined) {
@@ -98,7 +97,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // 5) Re‐format exactly as before
+    // Re‐format 
     const formattedProblems =
       problems?.map((problem) => ({
         ...problem,
@@ -121,7 +120,7 @@ export async function GET(request: Request) {
   }
 }
 
-// ─── POST: insert a new problem (with user_id) ────────────────────────────────────────
+//  insert a new problem (with user_id) 
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("Authorization") || "";
@@ -240,7 +239,7 @@ export async function POST(request: Request) {
       return addCorsHeaders(resp);
     }
 
-    // ─── Insert the new problem row with user_id = user.id ───────────
+    //  Insert the new problem row with user_id = user.id 
     const number = String(Math.floor(Math.random() * 1000) + 1);
 
     const {
@@ -260,7 +259,7 @@ export async function POST(request: Request) {
         tags: problem.topics || [],
         completed: false,
         number,
-        user_id: user.id, // ← guaranteed to be non-null and valid
+        user_id: user.id, // guaranteed to be non-null and valid
       })
       .select()
       .single();

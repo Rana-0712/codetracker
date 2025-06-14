@@ -1,9 +1,7 @@
-/* app/api/problems/[id]/route.ts */
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize a Supabase client with the SERVICE-ROLE key
-// (It must be a server‐only environment variable—never expose this on the front end.)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -36,12 +34,12 @@ async function getUserIdFromRequest(request: Request): Promise<string | NextResp
   return user.id;
 }
 
-// ─── GET problem by ID (only if it belongs to the authenticated user) ─────────────────
+// GET problem by ID (only if it belongs to the authenticated user)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // 1) Verify JWT & get user_id
+  // Verify JWT & get user_id
   const userIdOrResponse = await getUserIdFromRequest(request);
   if (typeof userIdOrResponse !== "string") {
     // That means it is a NextResponse (401). Return it directly.
@@ -49,11 +47,11 @@ export async function GET(
   }
   const userId = userIdOrResponse;
 
-  // 2) Extract the `id` param
+  // Extract the `id` param
   const { id } = await params;
 
   try {
-    // 3) Fetch only if user_id matches
+    // Fetch only if user_id matches
     const { data: problem, error } = await supabaseAdmin
       .from("problems")
       .select(`*, topics ( id, name, slug )`)
@@ -89,12 +87,11 @@ export async function GET(
   }
 }
 
-// ─── PATCH update problem (only if it belongs to the authenticated user) ─────────────
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // 1) Verify JWT & get user_id
+  //  Verify JWT & get user_id
   const userIdOrResponse = await getUserIdFromRequest(request);
   if (typeof userIdOrResponse !== "string") {
     // That means it's a 401 response
@@ -102,7 +99,7 @@ export async function PATCH(
   }
   const userId = userIdOrResponse;
 
-  // 2) Extract the `id` param
+  //  Extract the `id` param
   const { id } = await params;
 
   try {
@@ -113,7 +110,7 @@ export async function PATCH(
     if (typeof completed === "boolean") updateData.completed = completed;
     if (typeof notes === "string") updateData.notes = notes;
 
-    // 3) Only update if user_id matches as well
+    // Only update if user_id matches as well
     const { data, error } = await supabaseAdmin
       .from("problems")
       .update(updateData)
@@ -124,7 +121,6 @@ export async function PATCH(
 
     if (error) {
       console.error("Error updating problem:", error);
-      // Could be “not found” or “access denied”
       return NextResponse.json(
         { error: "Failed to update or access denied" },
         { status: 404 }
@@ -141,12 +137,12 @@ export async function PATCH(
   }
 }
 
-// ─── DELETE problem by ID (only if it belongs to the authenticated user) ─────────────
+//  DELETE problem by ID 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // 1) Verify JWT & get user_id
+  // Verify JWT & get user_id
   const userIdOrResponse = await getUserIdFromRequest(request);
   if (typeof userIdOrResponse !== "string") {
     // That means it's a 401 response
@@ -154,11 +150,11 @@ export async function DELETE(
   }
   const userId = userIdOrResponse;
 
-  // 2) Extract the `id` param
+  // Extract the `id` param
   const { id } = await params;
 
   try {
-    // 3) Only delete if user_id matches
+    // Only delete if user_id matches
     const { error } = await supabaseAdmin
       .from("problems")
       .delete()

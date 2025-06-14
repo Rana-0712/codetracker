@@ -1,6 +1,6 @@
 console.log("background.js: starting up");
 
-// ─── 1) Load Supabase and Config ─────────────────────────────────────
+//  1) Load Supabase and Config 
 try {
   importScripts("vendor/supabase.js", "config.js"); // includes both scripts
   console.log("background.js: importScripts succeeded");
@@ -29,7 +29,7 @@ try {
 
 let supabaseExt = null;
 
-// ─── 3) Init Supabase Client ─────────────────────────────────────────
+//  3) Init Supabase Client 
 function initSupabaseClient() {
   return new Promise((resolve) => {
     chrome.storage.local.get(
@@ -62,7 +62,7 @@ function initSupabaseClient() {
 
 initSupabaseClient();
 
-// ─── 4) OnInstalled Hook ─────────────────────────────────────────────
+//  4) OnInstalled Hook 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("background.js: onInstalled event");
 
@@ -80,7 +80,7 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("background.js: Cleared supabase_session on install");
 });
 
-// ─── 5) Listen to Messages ───────────────────────────────────────────
+//  5) Listen to Messages 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "isProblemPage") {
     console.log("background.js: Problem page detected:", request.isProblemPage);
@@ -88,7 +88,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// ─── 6) Session Validation ───────────────────────────────────────────
+//  6) Session Validation 
 chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
   if (supabase_session?.access_token) {
     try {
@@ -115,7 +115,7 @@ chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
   }
 });
 
-// ─── 7) Sync Function ────────────────────────────────────────────────
+// ─── 7) Sync Function ───
 async function syncWithWebApp() {
   if (!supabaseExt) {
     await initSupabaseClient();

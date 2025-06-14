@@ -1,5 +1,3 @@
-// content-script.js
-
 // ─── 1) Override history.pushState / replaceState to detect client-side navigation ─────────────────
 (function() {
   const originalPush = history.pushState;
@@ -59,7 +57,7 @@ function onUrlChange() {
   }, 200);
 }
 
-// ─── 3) MutationObserver helper to detect when a specific selector appears ────────────────────────
+//  3) MutationObserver helper to detect when a specific selector appears 
 function watchForProblemContainer(selector, onFound) {
   // If an observer already exists, disconnect it before creating a new one
   if (lastObserver) {
@@ -101,7 +99,7 @@ function watchForProblemContainer(selector, onFound) {
   }, 5000);
 }
 
-// ─── 4) Helper function to determine which platform we're on ───────────────────────────────────
+// 4) Helper function to determine which platform we're on 
 function detectPlatform() {
   const url = window.location.href;
   if (url.includes("leetcode.com/problems/")) return "leetcode";
@@ -116,26 +114,21 @@ function detectPlatform() {
 function getProblemContainerSelector(platform) {
   switch (platform) {
     case "leetcode":
-      // LeetCode’s problem container (new layout)
       return '[data-cy="question-content"], .question-content, .content__u3I1';
     case "geeksforgeeks":
-      // GeeksForGeeks problem-statement wrapper
       return "div[class*='problems_problem_content']";
     case "interviewbit":
-      // InterviewBit’s description container
       return ".p-html-content__container, .problem-statement, .p-html-content";
     case "codechef":
-      // CodeChef’s problem-statement wrapper
       return "#problem-statement, .problem-statement";
     case "codeforces":
-      // Codeforces problem-statement wrapper
       return ".problem-statement, .roundbox .problem-statement";
     default:
       return null;
   }
 }
 
-// ─── 6) Extract problem data based on the platform ─────────────────────────────────────────────
+// 6) Extract problem data based on the platform 
 function extractProblemData() {
   const platform = detectPlatform();
   const data = {
@@ -179,7 +172,7 @@ function extractProblemData() {
   return data;
 }
 
-// ─── 7) Generic extraction for unknown platforms ───────────────────────────────────────────────
+// 7) Generic extraction for unknown platforms 
 function extractGenericData(data) {
   const titleSelectors = ["h1", ".title", ".problem-title", "[data-cy='question-title']"];
   for (const selector of titleSelectors) {
@@ -195,14 +188,11 @@ function extractGenericData(data) {
   data.difficulty = "Medium";
 }
 
-// ─── 8) LeetCode-specific extraction ───────────────────────────────────────────────────────────
+// 8) LeetCode-specific extraction 
 function extractLeetCodeData(data) {
   // Title
   const titleSelectors = [
-    '[data-cy="question-title"]',
-    ".css-v3d350",
-    ".question-title h3",
-    "h1"
+    "text-title-large",
   ];
   for (const selector of titleSelectors) {
     const titleElement = document.querySelector(selector);

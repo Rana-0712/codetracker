@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient"; // Adjust the path as necessary
+import { supabase } from "@/lib/supabaseClient"; 
 
 export default function SignInPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function SignInPage() {
     if (error) {
       setErrorMsg(error.message);
     } else {
-      router.push("/"); // or any dashboard/home page
+      router.push("/"); 
     }
   };
 

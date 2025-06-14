@@ -1,4 +1,3 @@
-// app/problem/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -23,10 +22,7 @@ import {
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-// Import your Supabase client (anon key) to read the session
 import { supabase } from "@/lib/supabaseClient";
-//—or— if you’re using AuthContext:
-// import { useAuth } from "@/context/AuthContext";
 
 interface Problem {
   id: string;
@@ -55,10 +51,8 @@ export default function ProblemPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
 
-  // New: store the JWT here once we have it
   const [token, setToken] = useState<string>("");
 
-  // 1) On mount, grab the existing Supabase session (JWT)
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
@@ -66,11 +60,6 @@ export default function ProblemPage() {
       }
     });
 
-    // If you used AuthContext, you’d do:
-    // const { session } = useAuth();
-    // useEffect(() => {
-    //   if (session) setToken(session.access_token);
-    // }, [session]);
   }, []);
 
   // 2) Now that we have `token`, fetch the problem details

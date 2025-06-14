@@ -1,4 +1,3 @@
-/* app/api/topics/[slug]/problems/route.ts */
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 

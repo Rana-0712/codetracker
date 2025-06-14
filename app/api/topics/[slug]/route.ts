@@ -1,5 +1,3 @@
-/* app/api/topics/[slug]/route.ts */
-
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -73,7 +71,7 @@ export async function GET(
       .from("problems")
       .select("difficulty, completed")
       .eq("topic_id", topic.id)
-      .eq("user_id", userId); // ← only this user’s rows
+      .eq("user_id", userId); //  only this user’s rows
 
     if (problemsError) {
       console.error("Error fetching problems:", problemsError);
