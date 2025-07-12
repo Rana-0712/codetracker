@@ -1,2 +1,3 @@
-var NEXT_PUBLIC_SUPABASE_URL = "https://jomtwhendjtvbhkiyrgk.supabase.co";
-var NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvbXR3aGVuZGp0dmJoa2l5cmdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2MjQ3NDEsImV4cCI6MjA2NDIwMDc0MX0.sm3sJ1JQyBsiM3iFqFSQFNR6Z6Qb-vyVEuobwGdEQLA";
+var NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YXdhaXRlZC1sYW1wcmV5LTI5LmNsZXJrLmFjY291bnRzLmRldiQ";
+var CLERK_SECRET_KEY = "sk_test_18•••••h2J";
+var API_BASE_URL = "https://codetracker-psi.vercel.app";

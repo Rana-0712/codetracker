@@ -1,5 +1,3 @@
-// app/components/EnhancedProblemList.tsx   (or wherever you keep this file)
-// ─────────────────────────────────────────────────────────────────────────────
 "use client";
 
 import { useState, useEffect } from "react";
@@ -18,10 +16,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { useAuth } from "@/context/AuthContext";            // <–– adjust path as needed
-import { supabase } from "@/lib/supabaseClient";            // <–– adjust path as needed
+import { useUser } from "@clerk/nextjs";
 
-// ── Define the Problem type (match your database)
 interface Problem {
   id: string;
   name: string;
@@ -34,7 +30,6 @@ interface Problem {
   isBookmarked?: boolean;
 }
 
-// ── Only need title and “expanded” as props now
 interface EnhancedProblemListProps {
   title: string;
   expanded?: boolean;
@@ -118,46 +113,45 @@ export default function EnhancedProblemList({
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const { user } = useAuth();
+  const { isSignedIn, user } = useUser();
 
-  // ── Fetch only this user’s saved problems when `user` is defined
+  // Fetch only this user's saved problems when user is signed in
   useEffect(() => {
-  if (!user) {
+  if (!isSignedIn || !user) {
     setMyProblems([]);
     setLoading(false);
     return;
   }
 
   setLoading(true);
-  supabase
-    .from("problems")
-    .select(`
-      id,
-      name,
-      difficulty,
-      completed,
-      url,
-      platform,
-      companies,
-      tags
-    `)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("Error fetching user’s problems:", error);
-        setErrorMessage(error.message);
-        setMyProblems([]);
-      } else {
-        setMyProblems((data as Problem[]) || []);
+  
+  fetch("/api/problems")
+    .then(res => res.json())
+    .then(data => {
+      if (data.problems) {
+        setMyProblems(data.problems.map((p: any) => ({
+          id: p.id,
+          name: p.title,
+          difficulty: p.difficulty,
+          completed: p.completed,
+          url: p.url,
+          platform: p.platform,
+          companies: p.companies,
+          tags: p.tags,
+        })));
       }
       setLoading(false);
+    })
+    .catch(error => {
+      console.error("Error fetching problems:", error);
+      setErrorMessage("Failed to fetch problems");
+      setLoading(false);
     });
-}, [user]);
+}, [isSignedIn, user]);
 
 
-  // ── If not signed in, prompt to sign in
-  if (!user) {
+  // If not signed in, prompt to sign in
+  if (!isSignedIn) {
     return (
       <div className="p-4 text-center text-red-600">
         Please sign in to see your saved problems.
@@ -165,14 +159,14 @@ export default function EnhancedProblemList({
     );
   }
 
-  // ── If still loading
+  // If still loading
   if (loading) {
     return (
       <div className="p-4 text-center">Loading your saved problems…</div>
     );
   }
 
-  // ── If no problems or there was an error
+  // If no problems or there was an error
   if (myProblems.length === 0) {
     return (
       <div className="p-4 text-center text-gray-700">
@@ -183,7 +177,7 @@ export default function EnhancedProblemList({
     );
   }
 
-  // ── At this point, we have at least one problem in `myProblems`
+  // At this point, we have at least one problem in myProblems
   const completedCount = myProblems.filter((p) => p.completed).length;
 
   return (

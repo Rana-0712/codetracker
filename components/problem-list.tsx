@@ -6,8 +6,7 @@ import { ChevronDown, ChevronRight, CheckCircle2, Circle, ExternalLink } from "l
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/context/AuthContext"
-import { supabase } from "@/lib/supabaseClient"
+import { useUser } from "@clerk/nextjs"
 
 interface Problem {
   id: string
@@ -48,24 +47,19 @@ function getPlatformColor(platform?: string) {
 export default function ProblemList({ title, expanded = false }: ProblemListProps) {
   const [isExpanded, setIsExpanded] = useState(expanded)
   const [problems, setProblems] = useState<Problem[]>([])
-  const { user } = useAuth()
+  const { isSignedIn, user } = useUser()
 
   useEffect(() => {
     const fetchProblems = async () => {
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
-
-      const res = await fetch("/api/problems", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch("/api/problems")
       const data = await res.json()
       setProblems(data.problems || [])
     }
 
-    if (user) fetchProblems()
-  }, [user])
+    if (isSignedIn) fetchProblems()
+  }, [isSignedIn, user])
 
-  if (!user) {
+  if (!isSignedIn) {
     return <div className="p-6 text-muted-foreground text-center">Please sign in to view your saved problems.</div>
   }
 

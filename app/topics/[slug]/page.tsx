@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 
-import { supabase } from "@/lib/supabaseClient";
+import { useUser } from "@clerk/nextjs";
 
 interface Topic {
   id: string;
@@ -51,58 +51,34 @@ interface Problem {
 export default function TopicPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const { isSignedIn, user } = useUser();
 
   const [topic, setTopic] = useState<Topic | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // NEW: store the JWT once we fetch the session
-  const [token, setToken] = useState<string>("");
-
   useEffect(() => {
-    // On mount, get the Supabase session (access_token)
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setToken(data.session.access_token);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    // Only fetch once we have both slug and token
-    if (!slug || !token) return;
+    if (!slug || !isSignedIn || !user) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // 1) Fetch topic details with Authorization header
+        // Fetch topic details
         const topicRes = await fetch(
           `/api/topics/${encodeURIComponent(slug)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { "Content-Type": "application/json" } }
         );
         if (!topicRes.ok) {
           throw new Error(`Failed to fetch topic: ${topicRes.status}`);
         }
         const topicData = await topicRes.json();
 
-        // 2) Fetch problems for this topic with Authorization header
+        // Fetch problems for this topic
         const problemsRes = await fetch(
           `/api/topics/${encodeURIComponent(slug)}/problems`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { "Content-Type": "application/json" } }
         );
         if (!problemsRes.ok) {
           throw new Error(`Failed to fetch problems: ${problemsRes.status}`);
@@ -119,12 +95,12 @@ export default function TopicPage() {
     };
 
     fetchData();
-  }, [slug, token]);
+  }, [slug, isSignedIn, user]);
 
   // Toggle completion status for a problem
   const toggleCompletion = async (problemId: string) => {
     const target = problems.find((p) => p.id === problemId);
-    if (!target || !token) return;
+    if (!target) return;
 
     // Optimistically update UI
     setProblems((prev) =>
@@ -136,10 +112,7 @@ export default function TopicPage() {
     try {
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // include token
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !target.completed }),
       });
 
@@ -165,7 +138,7 @@ export default function TopicPage() {
   // Delete a problem
   const deleteProblem = async (problemId: string) => {
     const target = problems.find((p) => p.id === problemId);
-    if (!target || !token) return;
+    if (!target) return;
 
     // Optimistically remove from UI
     setProblems((prev) => prev.filter((p) => p.id !== problemId));
@@ -173,9 +146,6 @@ export default function TopicPage() {
     try {
       const res = await fetch(`/api/problems/${problemId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`, // include token
-        },
       });
       if (!res.ok) {
         // Re‐add if deletion failed
@@ -188,6 +158,14 @@ export default function TopicPage() {
       setProblems((prev) => [...prev, target]);
     }
   };
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Please sign in to view topics
+      </div>
+    );
+  }
 
   const filteredProblems = problems.filter(
     (problem) =>

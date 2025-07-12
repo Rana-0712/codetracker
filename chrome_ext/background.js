@@ -1,68 +1,14 @@
 console.log("background.js: starting up");
 
-//  1) Load Supabase and Config 
+// Load config
 try {
-  importScripts("vendor/supabase.js", "config.js"); // includes both scripts
-  console.log("background.js: importScripts succeeded");
+  importScripts("config.js");
+  console.log("background.js: config loaded");
 } catch (e) {
-  console.error("background.js: importScripts failed:", e);
+  console.error("background.js: config load failed:", e);
 }
 
-// 2) Verify Supabase is loaded
-if (typeof supabase === "undefined") {
-  console.error("background.js: ERROR—global 'supabase' is undefined after importScripts");
-} else {
-  console.log("background.js: global 'supabase' is present");
-}
-
-let createClient = null;
-try {
-  createClient = supabase.createClient;
-  if (typeof createClient !== "function") {
-    console.error("background.js: ERROR—supabase.createClient is not a function");
-  } else {
-    console.log("background.js: supabase.createClient() is available");
-  }
-} catch (e) {
-  console.error("background.js: ERROR accessing supabase.createClient:", e);
-}
-
-let supabaseExt = null;
-
-//  3) Init Supabase Client 
-function initSupabaseClient() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(
-      ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
-      ({ SUPABASE_URL, SUPABASE_ANON_KEY }) => {
-        const url = SUPABASE_URL || NEXT_PUBLIC_SUPABASE_URL;
-        const key = SUPABASE_ANON_KEY || NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        if (!url || !key) {
-          console.error("background.js: Missing Supabase keys (storage + config fallback failed)");
-          resolve(null);
-          return;
-        }
-
-        console.log("background.js: Using Supabase URL =", url);
-        console.log("background.js: Using Supabase ANON_KEY =", key.slice(0, 8) + "…");
-
-        try {
-          supabaseExt = createClient(url, key);
-          console.log("background.js: Successfully created supabaseExt client");
-          resolve(supabaseExt);
-        } catch (e) {
-          console.error("background.js: Error creating supabase client:", e);
-          resolve(null);
-        }
-      }
-    );
-  });
-}
-
-initSupabaseClient();
-
-//  4) OnInstalled Hook 
+// Initialize storage on install
 chrome.runtime.onInstalled.addListener(() => {
   console.log("background.js: onInstalled event");
 
@@ -76,11 +22,12 @@ chrome.runtime.onInstalled.addListener(() => {
     }
   });
 
-  chrome.storage.local.remove("supabase_session");
-  console.log("background.js: Cleared supabase_session on install");
+  // Clear any old session data
+  chrome.storage.local.remove(["clerk_session", "user_session"]);
+  console.log("background.js: Cleared old session data on install");
 });
 
-//  5) Listen to Messages 
+// Listen to messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "isProblemPage") {
     console.log("background.js: Problem page detected:", request.isProblemPage);
@@ -88,52 +35,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-//  6) Session Validation 
-chrome.storage.local.get(["supabase_session"], async ({ supabase_session }) => {
-  if (supabase_session?.access_token) {
-    try {
-      const response = await fetch(
-        "https://codetracker-psi.vercel.app/api/validate-session",
-        {
-          headers: {
-            Authorization: `Bearer ${supabase_session.access_token}`,
-          },
-        }
-      );
-      if (!response.ok) {
-        console.warn("background.js: session invalid—removing supabase_session");
-        chrome.storage.local.remove("supabase_session");
-      } else {
-        console.log("background.js: session still valid");
-      }
-    } catch (e) {
-      console.error("background.js: Session validation failed:", e);
-      chrome.storage.local.remove("supabase_session");
-    }
-  } else {
-    console.log("background.js: no supabase_session to validate");
-  }
-});
-
-// ─── 7) Sync Function ───
+// Sync function to send problems to web app
 async function syncWithWebApp() {
-  if (!supabaseExt) {
-    await initSupabaseClient();
-    if (!supabaseExt) return;
-  }
-
   chrome.storage.local.get(
-    ["savedProblemsByUser", "supabase_session"],
+    ["savedProblemsByUser", "user_session"],
     async (result) => {
       const allSaved = result.savedProblemsByUser || {};
-      const supaSession = result.supabase_session;
+      const userSession = result.user_session;
 
-      if (!supaSession || !supaSession.access_token) {
-        console.log("background.js: syncWithWebApp: no session to sync");
+      if (!userSession || !userSession.userId) {
+        console.log("background.js: syncWithWebApp: no user session to sync");
         return;
       }
 
-      const userId = supaSession.user.id;
+      const userId = userSession.userId;
       const savedForMe = allSaved[userId] || [];
 
       if (savedForMe.length === 0) {
@@ -149,12 +64,12 @@ async function syncWithWebApp() {
 
       try {
         const response = await fetch(
-          "https://codetracker-psi.vercel.app/api/problems/bulk-sync",
+          `${API_BASE_URL}/api/problems/bulk-sync`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${supaSession.access_token}`,
+              "Authorization": `Bearer ${userSession.sessionToken}`,
             },
             body: JSON.stringify({ user_id: userId, problems: savedForMe }),
           }

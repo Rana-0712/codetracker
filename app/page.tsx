@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabaseClient"; // ensure this is properly initialized
+import { useUser } from "@clerk/nextjs";
 
 interface Topic {
   id: string;
@@ -37,66 +37,33 @@ interface Problem {
 
 export default function Home() {
   const router = useRouter();
+  const { isSignedIn, user } = useUser();
 
   const [topics, setTopics] = useState<Topic[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [token, setToken] = useState<string>("");
 
-  // Persist session and optionally redirect
+  // Redirect to sign-in if not authenticated
   useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        setToken(session.access_token);
-      } else {
-        router.push("/signin");
-      }
-
-      if (error) {
-        console.error("Error getting session", error.message);
-      }
-    };
-
-    getSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session) {
-          setToken(session.access_token);
-        }
-      }
-    );
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, [router]);
+    if (!isSignedIn) {
+      setLoading(false);
+    }
+  }, [isSignedIn]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!isSignedIn || !user) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
 
         const topicsRes = await fetch("/api/topics", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
 
         const problemsRes = await fetch("/api/problems?limit=20", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
 
         if (!topicsRes.ok || !problemsRes.ok) throw new Error("Fetch failed");
@@ -114,11 +81,11 @@ export default function Home() {
     };
 
     fetchData();
-  }, [token]);
+  }, [isSignedIn, user]);
 
   const toggleCompletion = async (id: string) => {
     const target = problems.find((p) => p.id === id);
-    if (!target || !token) return;
+    if (!target) return;
 
     setProblems((prev) =>
       prev.map((p) => (p.id === id ? { ...p, completed: !p.completed } : p))
@@ -127,10 +94,7 @@ export default function Home() {
     try {
       const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !target.completed }),
       });
 
@@ -145,16 +109,13 @@ export default function Home() {
 
   const deleteProblem = async (id: string) => {
     const target = problems.find((p) => p.id === id);
-    if (!target || !token) return;
+    if (!target) return;
 
     setProblems((prev) => prev.filter((p) => p.id !== id));
 
     try {
       const res = await fetch(`/api/problems/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) throw new Error("Delete failed");
@@ -163,6 +124,17 @@ export default function Home() {
       setProblems((prev) => [...prev, target]);
     }
   };
+
+  if (!isSignedIn) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Welcome to CodeTracker</h1>
+          <p className="text-muted-foreground mb-6">Please sign in to access your problems</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredProblems = problems.filter(
     (p) =>

@@ -21,7 +21,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["vendor/supabase.js", "config.js"],
+      "resources": ["config.js"],
       "matches": ["<all_urls>"]
     }
   ],

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-import { supabase } from "@/lib/supabaseClient";
+import { useUser } from "@clerk/nextjs";
 
 interface Problem {
   id: string;
@@ -44,6 +44,7 @@ interface Problem {
 export default function ProblemPage() {
   const params = useParams();
   const id = params.id as string;
+  const { isSignedIn, user } = useUser();
 
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,22 +52,10 @@ export default function ProblemPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
 
-  const [token, setToken] = useState<string>("");
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setToken(data.session.access_token);
-      }
-    });
-
-  }, []);
-
-  // 2) Now that we have `token`, fetch the problem details
+  // Fetch the problem details
   useEffect(() => {
     if (!id) return;
-    if (!token) {
-      // Don’t fetch until the token is loaded
+    if (!isSignedIn || !user) {
       return;
     }
 
@@ -74,13 +63,10 @@ export default function ProblemPage() {
       try {
         setLoading(true);
 
-        // Fetch problem details, including Authorization
+        // Fetch problem details
         const res = await fetch(`/api/problems/${id}`, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
         });
 
         if (!res.ok) {
@@ -101,21 +87,18 @@ export default function ProblemPage() {
     };
 
     fetchData();
-  }, [id, token]);
+  }, [id, isSignedIn, user]);
 
-  // 3) PATCH to update notes, including Authorization
+  // Update notes
   const handleSaveNotes = async () => {
-    if (!problem || !token) return;
+    if (!problem) return;
 
     try {
       setSaving(true);
 
       const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes }),
       });
 
@@ -132,17 +115,14 @@ export default function ProblemPage() {
     }
   };
 
-  // 4) PATCH to toggle completion, including Authorization
+  // Toggle completion
   const toggleCompletion = async () => {
-    if (!problem || !token) return;
+    if (!problem) return;
 
     try {
       const res = await fetch(`/api/problems/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !problem.completed }),
       });
 
@@ -156,6 +136,14 @@ export default function ProblemPage() {
       console.error("Error toggling completion:", error);
     }
   };
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Please sign in to view problems
+      </div>
+    );
+  }
 
   if (loading) {
     return (

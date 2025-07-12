@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from "@/context/AuthContext"
+import { useUser, useClerk } from "@clerk/nextjs"
 import {
   Avatar,
   AvatarFallback,
@@ -15,25 +15,29 @@ import {
 import { LogOut } from "lucide-react"
 
 export function UserMenu() {
-  const { user, signOut } = useAuth()
+  const { user } = useUser()
+  const { signOut } = useClerk()
 
   if (!user) return null
 
+  const handleSignOut = () => {
+    signOut()
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="cursor-pointer">
         <Avatar className="w-8 h-8">
-          <AvatarImage src={`https://ui-avatars.com/api/?name=${user.email}`} />
-          <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+          <AvatarImage src={user.imageUrl} />
+          <AvatarFallback>{user.firstName?.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         className="animate-in fade-in zoom-in-75 duration-200"
       >
-        <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+        <DropdownMenuItem disabled>{user.primaryEmailAddress?.emailAddress}</DropdownMenuItem>
         <DropdownMenuItem
-          onClick={signOut}
+          onClick={handleSignOut}
           className="text-red-600 cursor-pointer"
         >
           <LogOut className="mr-2 h-4 w-4" />

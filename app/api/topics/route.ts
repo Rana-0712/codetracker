@@ -1,98 +1,103 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { auth } from "@clerk/nextjs/server";
+import connectDB from "@/lib/mongodb";
+import Topic from "@/models/Topic";
+import Problem from "@/models/Problem";
 
-// ─── Initialize a Supabase “admin” client with your service-role key ────────────────
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// ─── Helper: Extract & verify JWT; return userId or a NextResponse(401) ─────────────
-async function getUserIdFromRequest(request: Request): Promise<string | NextResponse> {
-  const authHeader = request.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-
-  if (!token) {
-    return NextResponse.json(
-      { error: "Missing Authorization token" },
-      { status: 401 }
-    );
-  }
-
-  const {
-    data: { user },
-    error: getUserError,
-  } = await supabaseAdmin.auth.getUser(token);
-
-  if (getUserError || !user) {
-    return NextResponse.json(
-      { error: "Invalid or expired token" },
-      { status: 401 }
-    );
-  }
-
-  return user.id;
-}
-
-// ─── GET: Return all topics, each with a count of THIS USER’s problems ───────────────
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // 1) Verify JWT & get user ID
-    const userIdOrResponse = await getUserIdFromRequest(request);
-    if (typeof userIdOrResponse !== "string") {
-      // Means it’s a NextResponse(401). Return it immediately.
-      return userIdOrResponse;
-    }
-    const userId = userIdOrResponse;
-
-    // 2) Fetch all topics (id, name, slug, description), ordered by name
-    const { data: topics, error: topicsError } = await supabaseAdmin
-      .from("topics")
-      .select(`
-        id,
-        name,
-        slug,
-        description
-      `)
-      .order("name", { ascending: true });
-
-    if (topicsError) {
-      console.error("Error fetching topics:", topicsError);
-      return NextResponse.json(
-        { error: "Failed to fetch topics" },
-        { status: 500 }
-      );
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 3) For each topic, count only this user’s problems
+    await connectDB();
+
+    // Fetch all topics for this user
+    const topics = await Topic.find({ userId }).sort({ name: 1 });
+
+    // Get problem counts for each topic
     const topicsWithCounts = await Promise.all(
-      (topics || []).map(async (topic) => {
-        const { count, error: countError } = await supabaseAdmin
-          .from("problems")
-          .select("*", { count: "exact", head: true })
-          .eq("topic_id", topic.id)
-          .eq("user_id", userId);
-
-        if (countError) {
-          console.error(
-            `Error counting problems for topic ${topic.id}:`,
-            countError
-          );
-        }
+      topics.map(async (topic) => {
+        const count = await Problem.countDocuments({
+          userId,
+          topicId: topic._id,
+        });
 
         return {
-          id: topic.id,
+          id: topic._id.toString(),
           name: topic.name,
           slug: topic.slug,
           description: topic.description,
-          count: count ?? 0,
+          count,
         };
       })
     );
 
     return NextResponse.json({ topics: topicsWithCounts });
-  } catch (err) {
-    console.error("Error:", err);
+  } catch (error) {
+    console.error("Error fetching topics:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { name, description } = await request.json();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Topic name is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    // Create slug from name
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    const topic = new Topic({
+      name,
+      slug,
+      description: description || "",
+      userId,
+    });
+
+    await topic.save();
+
+    return NextResponse.json({
+      success: true,
+      topic: {
+        id: topic._id.toString(),
+        name: topic.name,
+        slug: topic.slug,
+        description: topic.description,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error creating topic:", error);
+    
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: "Topic with this name already exists" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

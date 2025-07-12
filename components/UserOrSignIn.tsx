@@ -3,20 +3,20 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { LogIn } from "lucide-react"
-import { useAuth } from "@/context/AuthContext"
+import { useUser, SignInButton } from "@clerk/nextjs"
 import { UserMenu } from "@/components/UserMenu"
 
 export function UserOrSignIn() {
-  const { user } = useAuth()
+  const { isSignedIn, user } = useUser()
 
-  return user ? (
+  return isSignedIn ? (
     <UserMenu />
   ) : (
-    <Link href="/signin">
+    <SignInButton mode="modal">
       <Button variant="ghost" size="sm" className="gap-2">
         <LogIn className="h-4 w-4" />
         Sign In
       </Button>
-    </Link>
+    </SignInButton>
   )
 }

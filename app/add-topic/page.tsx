@@ -5,13 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { createClient } from "@supabase/supabase-js"
+import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+import connectDB from "@/lib/mongodb"
+import Topic from "@/models/Topic"
 
 async function createTopic(formData: FormData) {
   "use server"
+
+  const { userId } = await auth()
+  
+  if (!userId) {
+    redirect("/sign-in")
+  }
 
   const name = formData.get("name") as string
   const description = formData.get("description") as string
@@ -20,20 +26,27 @@ async function createTopic(formData: FormData) {
     return
   }
 
+  await connectDB()
+
   // Create slug from name
   const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
 
-  const { error } = await supabase.from("topics").insert({
+  const topic = new Topic({
     name,
     slug,
     description: description || "",
+    userId,
   })
 
-  if (!error) {
+  try {
+    await topic.save()
     redirect("/")
+  } catch (error: any) {
+    console.error("Error creating topic:", error)
+    // Handle duplicate slug error or other errors
   }
 }
 
