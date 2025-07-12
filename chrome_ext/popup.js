@@ -1,6 +1,6 @@
 // popup.js
 // ========
-// Handles authentication with Clerk and problem detection/save logic.
+// Handles authentication and problem detection/save logic for MERN stack.
 
 const log = (...args) => {
   console.log("popup.js:", ...args);
@@ -40,6 +40,9 @@ const savedTopicEl = document.getElementById("saved-topic");
 let currentProblemData = null;
 let currentUserId = null;
 let currentTabId = null;
+
+// API Base URL
+const API_URL = "http://localhost:5000/api";
 
 // Show/hide functions
 function showLoading() {
@@ -261,15 +264,15 @@ async function isSavedServerSide(url) {
       });
     });
 
-    if (!userSession || !userSession.sessionToken) {
+    if (!userSession || !userSession.token) {
       return false;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/problems/check`, {
+    const response = await fetch(`${API_URL}/problems/check`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${userSession.sessionToken}`,
+        "Authorization": `Bearer ${userSession.token}`,
       },
       body: JSON.stringify({ url }),
     });
@@ -332,29 +335,39 @@ async function checkProblemAndRender() {
   }
 }
 
-// Simple authentication simulation (replace with actual Clerk integration)
+// Authentication with backend
 async function authenticateUser(email, password) {
-  // This is a placeholder - in a real implementation, you'd integrate with Clerk
-  // For now, we'll simulate authentication
-  if (email && password) {
-    const userId = btoa(email); // Simple user ID generation
-    const sessionToken = "mock_session_token_" + Date.now();
-    
-    const userSession = {
-      userId,
-      email,
-      sessionToken,
-      timestamp: Date.now(),
-    };
-
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ user_session: userSession }, () => {
-        resolve({ success: true, user: userSession });
-      });
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     });
+
+    const data = await response.json();
+
+    if (data.success) {
+      const userSession = {
+        userId: data.user.id,
+        email: data.user.email,
+        token: data.token,
+        timestamp: Date.now(),
+      };
+
+      return new Promise((resolve) => {
+        chrome.storage.local.set({ user_session: userSession }, () => {
+          resolve({ success: true, user: userSession });
+        });
+      });
+    } else {
+      return { success: false, error: data.message || 'Authentication failed' };
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return { success: false, error: 'Network error' };
   }
-  
-  return { success: false, error: "Invalid credentials" };
 }
 
 // On popup load: initialize & drive flow
@@ -476,12 +489,12 @@ saveButton.addEventListener("click", async () => {
           });
         });
 
-        if (userSession && userSession.sessionToken) {
-          const response = await fetch(`${API_BASE_URL}/api/problems`, {
+        if (userSession && userSession.token) {
+          const response = await fetch(`${API_URL}/problems`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${userSession.sessionToken}`,
+              "Authorization": `Bearer ${userSession.token}`,
             },
             body: JSON.stringify({ problem: problemToSave }),
           });
@@ -536,7 +549,7 @@ viewButton.addEventListener("click", async () => {
     </div>
   `;
 
-  window.chrome.tabs.create({ url: API_BASE_URL });
+  window.chrome.tabs.create({ url: "http://localhost:3000" });
 });
 
 // Remove button - delete from local storage
@@ -570,4 +583,4 @@ removeButton.addEventListener("click", () => {
 });
 
 // Set the webapp link
-openWebappLink.href = API_BASE_URL;
+openWebappLink.href = "http://localhost:3000";
