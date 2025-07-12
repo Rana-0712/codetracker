@@ -1,3 +1,3 @@
 var NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YXdhaXRlZC1sYW1wcmV5LTI5LmNsZXJrLmFjY291bnRzLmRldiQ";
-var CLERK_SECRET_KEY = "sk_test_18•••••h2J";
+var CLERK_SECRET_KEY = "sk_test_18D3KfK4LI8mqV52FMi8wf11G9ubTBzPUc5FbT1h2J";
 var API_BASE_URL = "http://localhost:3000";
